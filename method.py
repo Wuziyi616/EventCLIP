@@ -76,9 +76,6 @@ class EventBaseMethod(BaseMethod):
         """Returns an optimizer, a scheduler and its frequency (step/epoch)."""
         optimizer = super()._configure_optimizers()[0]
 
-        if not self.params.lr_decay:
-            return optimizer, (None, '')
-
         lr = self.params.lr
         total_steps = self.params.max_epochs * len(self.train_loader)
         warmup_steps = self.params.warmup_steps_pct * total_steps

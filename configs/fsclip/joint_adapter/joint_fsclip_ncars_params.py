@@ -17,7 +17,6 @@ class EventCLIPParams(BaseParams):
     optimizer = 'Adam'
     lr = 2e-4
     warmup_steps_pct = 0.05
-    lr_decay = 'cosine'
 
     # data settings
     dataset = 'n_cars'
@@ -69,3 +68,7 @@ class EventCLIPParams(BaseParams):
     )
 
     ce_loss_w = 1.
+
+    # save the model with the highest acc
+    ckp_monitor = 'val/probs_acc'
+    ckp_monitor_type = 'max'  # 'max' or 'min'

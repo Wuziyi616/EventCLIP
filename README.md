@@ -4,9 +4,9 @@
 [Ziyi Wu](https://wuziyi616.github.io/),
 Xudong Liu,
 [Igor Gilitschenski](https://tisl.cs.utoronto.ca/author/igor-gilitschenski/)<br/>
-[arXiv'23]() |
+_[arXiv'23]() |
 [GitHub](https://github.com/Wuziyi616/EventCLIP) |
-[arXiv]() |
+[arXiv]()_
 
 ## Introduction
 

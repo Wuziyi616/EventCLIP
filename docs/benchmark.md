@@ -54,6 +54,14 @@ Other arguments include:
 -   `--arch`: change CLIP's image encoder backbone in zero-shot testing
 -   `--prompt`: change the text prompt in zero-shot testing
 
+We also provide a `--train_shots` argument.
+If you train multiple models with different `--num_shots` values in `train.py`, you can put all numbers of shots here to test them all together.
+For example, you can run:
+
+```
+python test.py --params configs/fsclip/joint_adapter/joint_fsclip_ncaltech_params.py --train_shots 20 10 5 3 1
+```
+
 **Note that testing is always conducted over the entire test set without few-shot filtering.**
 
 ## Scripts

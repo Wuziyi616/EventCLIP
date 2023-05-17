@@ -97,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument('--prompt', type=str, default='')
     parser.add_argument('--bs', type=int, default=-1)
     parser.add_argument('--subset', type=int, default=-1)
+    parser.add_argument('--train_shots', nargs='+', default=[-1], type=int)
     args = parser.parse_args()
 
     if args.params.endswith('.py'):
@@ -118,4 +119,38 @@ if __name__ == "__main__":
     if args.subset > 0:
         assert params.dataset == 'n_imagenet', 'only N-ImageNet has subsets'
 
-    main(params)
+    # automatically find the model weight if `train_shots` is provided
+    # we will ignore the provided `args.weight`
+    # instead search for 'checkpoint/$PARAMS-${NUM}shot/models/model_xxx.pth'
+    if args.train_shots[0] <= 0:
+        main(params)
+        exit(-1)
+
+    for num_shot in args.train_shots:
+        # first, find all dup-run dirs
+        dup_weight_dir = os.path.join('checkpoint', args.params)
+        all_weight_dirs = [f'{dup_weight_dir}-{num_shot}shot']
+        for i in range(1, 11, 1):  # at most dup 10 times
+            weight_dir = f'{dup_weight_dir}-dup{i}-{num_shot}shot'
+            if os.path.exists(weight_dir):
+                all_weight_dirs.append(weight_dir)
+
+        # now, for each weight_dir, find a weight to test
+        for weight_dir in all_weight_dirs:
+            if not os.path.exists(weight_dir):
+                continue
+            weight_dir = os.path.join(weight_dir, 'models')
+
+            # load the best weight if it is saved
+            if os.path.exists(os.path.join(weight_dir, 'best.pth')):
+                args.weight = os.path.join(weight_dir, 'best.pth')
+            # find the latest one
+            else:
+                all_weights = [
+                    w for w in os.listdir(weight_dir) if w.endswith('.pth')
+                ]
+                all_weights = sorted(
+                    all_weights, key=lambda x: int(x[:-4].split('_')[1]))
+                args.weight = os.path.join(weight_dir, all_weights[-1])
+
+            main(params)
