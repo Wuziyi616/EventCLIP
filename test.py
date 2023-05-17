@@ -31,7 +31,7 @@ def main(params):
         test_set = build_dataset(params, val_only=True, subset=args.subset)
     else:
         test_set = build_dataset(params, val_only=True)
-    is_in = (params.dataset == 'n_imagenet')
+    is_nin = (params.dataset == 'n_imagenet')
 
     datamodule = BaseDataModule(
         params, train_set=None, val_set=test_set, use_ddp=False)
@@ -40,19 +40,19 @@ def main(params):
     # build model
     params.clip_dict['clip_model'] = model
     params.clip_dict['class_names'] = test_set.classes
-    if hasattr(params, 'adapter_dict'):
+    if not is_zs:
         params.adapter_dict['in_dim'] = model.visual.output_dim
     model = build_model(params)
 
     # load weight
     # don't load for zero-shot models
-    if args.weight and hasattr(params, 'adapter_dict'):
+    if args.weight and not is_zs:
         model.load_weight(args.weight)
     model = model.cuda().eval()
 
     # test
     probs_acc_meter, logits_acc_meter = AverageMeter(), AverageMeter()
-    if is_in:
+    if is_nin:
         probs_acc5_meter, logits_acc5_meter = AverageMeter(), AverageMeter()
 
     for data_dict in tqdm(test_loader):
@@ -71,7 +71,7 @@ def main(params):
         logits_acc_meter.update(logits_acc, labels.shape[0])
 
         # top5 accuracy
-        if is_in:
+        if is_nin:
             probs_acc5 = (probs.topk(5, dim=-1).indices == labels[:, None]).\
                 float().sum(dim=-1).mean().item()
             probs_acc5_meter.update(probs_acc5, labels.shape[0])
@@ -79,11 +79,11 @@ def main(params):
                 float().sum(dim=-1).mean().item()
             logits_acc5_meter.update(logits_acc5, labels.shape[0])
 
-    print(f'\nTesting {args.params}')
+    print(f'\n\nTesting {args.params}')
     print(f'Model weight: {args.weight}')
     print(f'\tProbs-based accuracy@1: {probs_acc_meter.avg * 100.:.2f}%')
     print(f'\tLogits-based accuracy@1: {logits_acc_meter.avg * 100.:.2f}%\n')
-    if not is_in:
+    if not is_nin:
         return
     print(f'\tProbs-based accuracy@5: {probs_acc5_meter.avg * 100.:.2f}%')
     print(f'\tLogits-based accuracy@5: {logits_acc5_meter.avg * 100.:.2f}%\n')
@@ -106,13 +106,16 @@ if __name__ == "__main__":
     params = params.EventCLIPParams()
 
     # adjust params
+    is_zs = (params.model == 'ZSCLIP')
     if args.arch:
         params.clip_dict['arch'] = args.arch
+        assert is_zs, 'can only change ViT arch in zero-shot testing'
     if args.prompt:
         params.clip_dict['prompt'] = args.prompt
+        assert is_zs, 'can only change text prompt in zero-shot testing'
     if args.bs > 0:
         params.val_batch_size = args.bs
     if args.subset > 0:
-        assert params.dataset == 'n_imagenet'
+        assert params.dataset == 'n_imagenet', 'only N-ImageNet has subsets'
 
     main(params)

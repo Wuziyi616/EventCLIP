@@ -20,11 +20,6 @@ from datasets import build_dataset
 
 
 def main(params):
-    if args.fp16:
-        print("INFO: using FP16 training!")
-    if args.ddp:
-        print("INFO: using DDP training!")
-
     # have to load CLIP model first
     arch = params.clip_dict.pop('arch')
     device = 'cuda'
@@ -41,26 +36,39 @@ def main(params):
     params.clip_dict['class_names'] = train_set.classes
     params.resolution = train_set.resolution
     params.class_names = train_set.classes
-    if hasattr(params, 'adapter_dict'):
-        params.adapter_dict['in_dim'] = model.visual.output_dim
+    params.adapter_dict['in_dim'] = model.visual.output_dim
     model = build_model(params)
 
+    # create checkpoint dir
     exp_name = os.path.basename(args.params)
-    ckp_path = os.path.join(CHECKPOINT, exp_name, 'models')
+    ckp_path = os.path.join('checkpoint', exp_name, 'models')
     if args.local_rank == 0:
         mkdir_or_exist(os.path.dirname(ckp_path))
 
-        # on clusters, quota is limited
-        # soft link temp space for checkpointing
-        if not os.path.exists(ckp_path):
+        # on clusters, quota under user dir is usually limited
+        # soft link to save the weights in temp space for checkpointing
+        # e.g. on our cluster, the temp dir is /checkpoint/$USR/$SLURM_JOB_ID/
+        # TODO: modify this if you are not running on clusters
+        SLURM_JOB_ID = os.environ.get('SLURM_JOB_ID')
+        if SLURM_JOB_ID and not os.path.exists(ckp_path):
             os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
                 pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
 
-        wandb_name = f'{exp_name}-{SLURM_JOB_ID}'
+        # it's not good to hard-code the wandb id
+        # but on preemption clusters, we want the job to resume the same wandb
+        # process after resuming training (i.e. drawing the same graph)
+        # so we have to keep the same wandb id
+        # TODO: modify this if you are not running on preemption clusters
+        preemption = True
+        if SLURM_JOB_ID and preemption:
+            logger_id = logger_name = f'{exp_name}-{SLURM_JOB_ID}'
+        else:
+            logger_name = exp_name
+            logger_id = None
         wandb.init(
             project=params.project,
-            name=wandb_name,
-            id=wandb_name,
+            name=logger_name,
+            id=logger_id,
             dir=ckp_path,
         )
 
@@ -97,6 +105,9 @@ if __name__ == "__main__":
     params = params.EventCLIPParams()
     params.ddp = args.ddp
 
+    assert params.model == 'FSCLIP', \
+        'zero-shot EventCLIP does not require training'
+
     if args.num_shots > 0:
         params.num_shots = args.num_shots
         args.params = args.params + f'-{args.num_shots}shot'
@@ -107,8 +118,12 @@ if __name__ == "__main__":
                 params.num_shots * 2,  # 2 classes
                 params.train_batch_size)
 
-    SLURM_JOB_ID = os.environ.get('SLURM_JOB_ID')
-    CHECKPOINT = './checkpoint/'
+    if args.fp16:
+        print('INFO: using FP16 training!')
+    if args.ddp:
+        print('INFO: using DDP training!')
     if args.cudnn:
         torch.backends.cudnn.benchmark = True
+        print('INFO: using cudnn benchmark!')
+
     main(params)
