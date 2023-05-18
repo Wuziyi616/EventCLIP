@@ -123,7 +123,7 @@ class ZSCLIPClassifier(BaseModel):
     def _aggregate_probs(self, logits, valid_masks):
         """This one always take the mean."""
         valid_masks = valid_masks.detach().float()
-        probs = logits.softmax(-1)
+        probs = logits.softmax(dim=-1)
         probs = probs * valid_masks[..., None]
         probs = probs.sum(1) / valid_masks.sum(1, keepdim=True)
         return probs
@@ -306,7 +306,7 @@ class FSCLIPClassifier(ZSCLIPClassifier):
 
     def forward(self, data_dict):
         """Forward function."""
-        imgs = data_dict['img']  # [B, T, C, H, W]
+        imgs = data_dict['img']  # [B, T, C, H, W], `T` is number of views
         valid_masks = data_dict['valid_mask']  # [B, T]
         B, T = valid_masks.shape
 
@@ -319,7 +319,7 @@ class FSCLIPClassifier(ZSCLIPClassifier):
         full_img_feats = torch.zeros(B, T, C).type_as(img_feats)
         full_img_feats[valid_masks] = img_feats
         full_img_feats = self.adapter(full_img_feats, valid_masks)
-        # [B, T, C]
+        # [B, T, C], multi-view image features
         # normalize the output features
         # all zeros vector will still be zeros after F.normalize()
         full_img_feats = F.normalize(
@@ -334,7 +334,7 @@ class FSCLIPClassifier(ZSCLIPClassifier):
 
         # compute logits
         full_logits = (self.logit_scale * full_img_feats @ text_feats.T)
-        # [B, T, n_cls] if not using GloablTransformerAdapter, else [B, n_cls]
+        # [B, T, n_cls], multi-view logits
 
         # convert to [B, n_cls] for loss computation!
         logits = self._aggregate_logits(full_logits, valid_masks)

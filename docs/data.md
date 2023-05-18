@@ -3,10 +3,10 @@
 All datasets should be downloaded or soft-linked to `./data/`.
 Or you can modify the `data_root` value in the config files.
 
-## N-Caltech
+## N-Caltech101
 
-We adopt the N-Caltech dataset from [EST repo](https://github.com/uzh-rpg/rpg_event_representation_learning#training).
-Please download and unzip the data and put it under `./data/N-Caltech`.
+We adopt the N-Caltech101 dataset from [EST repo](https://github.com/uzh-rpg/rpg_event_representation_learning#training).
+Please download and unzip the data and put it under `./data/N-Caltech101`.
 
 ## N-Cars
 
