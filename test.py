@@ -128,7 +128,8 @@ if __name__ == "__main__":
 
     for num_shot in args.train_shots:
         # first, find all dup-run dirs
-        dup_weight_dir = os.path.join('checkpoint', args.params)
+        dup_weight_dir = os.path.join('checkpoint',
+                                      os.path.basename(args.params))
         all_weight_dirs = [f'{dup_weight_dir}-{num_shot}shot']
         for i in range(1, 11, 1):  # at most dup 10 times
             weight_dir = f'{dup_weight_dir}-dup{i}-{num_shot}shot'

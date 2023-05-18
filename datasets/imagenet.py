@@ -15,7 +15,7 @@ def load_event(event_path):
         event['p'].astype(np.uint8),
     ], 1)  # [N, 4]
 
-    event = event.astype(np.float)
+    event = event.astype(float)
 
     # Account for int-type timestamp
     event[:, 2] /= 1e6

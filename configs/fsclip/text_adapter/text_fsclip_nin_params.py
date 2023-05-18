@@ -9,7 +9,7 @@ class EventCLIPParams(BaseParams):
     max_epochs = 100
     save_interval = 1
     eval_interval = 5
-    save_epoch_end = True
+    save_epoch_end = False
     n_samples = 10
 
     # optimizer settings

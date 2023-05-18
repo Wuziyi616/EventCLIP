@@ -54,12 +54,15 @@ class EventBaseMethod(BaseMethod):
         """Validate one epoch.
         We aggregate the avg of all statistics and only log once.
         """
-        super().validation_epoch(model, san_check_step=san_check_step)
+        out_dict = super().validation_epoch(
+            model, san_check_step=san_check_step)
         if self.local_rank != 0:
             return
         # visualization after every epoch
         if sample_events:
             self._sample_events(model)
+
+        return out_dict
 
     @staticmethod
     def event2video(events, caption=None, **quantize_args):
