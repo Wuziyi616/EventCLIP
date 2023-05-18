@@ -205,6 +205,19 @@ class ZSCLIPClassifier(BaseModel):
         self.model.eval()
         return self
 
+    def state_dict(self):
+        """Remove CLIP weight from the state dict."""
+        w = super().state_dict()
+        w = {k: v for k, v in w.items() if not k.startswith('model.')}
+        return w
+
+    def load_state_dict(self, state_dict, strict=True):
+        """Don't load CLIP weight from the state dict."""
+        # load CLIP weight from the state dict
+        clip_w = {f'model.{k}': v for k, v in self.model.state_dict().items()}
+        state_dict = {**clip_w, **state_dict}
+        super().load_state_dict(state_dict, strict=strict)
+
 
 class FSCLIPClassifier(ZSCLIPClassifier):
     """CLIP model for **few-shot** classification."""
