@@ -3,6 +3,7 @@
 # run `train.py` with different event window sizes
 CMD=$1
 
+PY_ARGS=${@:6}
 N1=${2:-10}
 N2=${3:-20}
 N3=${4:-25}
@@ -13,7 +14,7 @@ N4=${5:-30}
 
 for N in $N1 $N2 $N3 $N4
 do
-    cmd="$CMD --N $N"
+    cmd="$CMD --N $N $PY_ARGS"
     echo $cmd
     eval $cmd
 done

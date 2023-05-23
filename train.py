@@ -109,6 +109,10 @@ if __name__ == "__main__":
     assert params.model == 'FSCLIP', \
         'zero-shot EventCLIP does not require training'
 
+    if args.N > 0:
+        params.quantize_args['N'] = int(args.N * 1000)
+        args.params = args.params + f'-N_{args.N}'
+
     if args.num_shots > 0:
         params.num_shots = args.num_shots
         args.params = args.params + f'-{args.num_shots}shot'
@@ -118,10 +122,6 @@ if __name__ == "__main__":
             params.train_batch_size = min(
                 params.num_shots * 2,  # 2 classes
                 params.train_batch_size)
-
-    if args.N > 0:
-        params.quantize_args['N'] = int(args.N * 1000)
-        args.params = args.params + f'-N_{args.N}'
 
     if args.fp16:
         print('INFO: using FP16 training!')

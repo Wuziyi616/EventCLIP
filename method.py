@@ -3,6 +3,7 @@ import wandb
 import numpy as np
 
 import torch
+import torch.optim as optim
 
 from nerv.training import BaseMethod, CosineAnnealingWarmupRestarts
 
@@ -18,7 +19,7 @@ def denormalize(x):
 
 def build_method(**kwargs):
     params = kwargs['params']
-    if params.model in ['ZSCLIP', 'FSCLIP']:
+    if params.model in ['ZSCLIP', 'FSCLIP', 'FTCLIP']:
         return EventCLIPMethod(**kwargs)
     else:
         raise NotImplementedError(f'{params.model} method is not implemented.')
@@ -142,3 +143,47 @@ class EventCLIPMethod(EventBaseMethod):
         wandb.log(log_dict, step=self.it)
         torch.cuda.empty_cache()
         dst.keep_events = False
+
+    def _configure_optimizers(self):
+        """Returns an optimizer, a scheduler and its frequency (step/epoch)."""
+        if self.params.model != 'FTCLIP':
+            return super()._configure_optimizers()
+
+        # use smaller lr for finetuning CLIP
+        if self.params.optimizer.lower() == 'adam':
+            opt = optim.Adam
+        elif self.params.optimizer.lower() == 'adamw':
+            opt = optim.AdamW
+        else:
+            raise ValueError('Should use Adam or AdamW optimizer!')
+        assert self.params.weight_decay == 0.
+        lr = self.params.lr
+        clip_lr = self.params.clip_lr
+        name = 'model.visual'
+
+        adapter_params = list(
+            filter(lambda kv: name not in kv[0] and kv[1].requires_grad,
+                   self.model.named_parameters()))
+        clip_params = list(
+            filter(lambda kv: name in kv[0], self.model.named_parameters()))
+        assert len(adapter_params) > 0 and len(clip_params) > 0
+        params_list = [{
+            'params': [kv[1] for kv in adapter_params],
+            'lr': lr,
+        }, {
+            'params': [kv[1] for kv in clip_params],
+            'lr': clip_lr,
+        }]
+
+        optimizer = opt(params_list)
+        total_steps = self.params.max_epochs * len(self.train_loader)
+        warmup_steps = self.params.warmup_steps_pct * total_steps
+        scheduler = CosineAnnealingWarmupRestarts(
+            optimizer,
+            total_steps,
+            max_lr=(lr, clip_lr),
+            min_lr=(lr / 100., clip_lr / 100.),
+            warmup_steps=warmup_steps,
+        )
+
+        return optimizer, (scheduler, 'step')
