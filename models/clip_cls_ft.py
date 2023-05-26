@@ -50,6 +50,7 @@ class FTCLIPClassifier(BaseModel):
         conv1 = self.clip_dict['only_conv1']
         bias = self.clip_dict['only_bias']
         ln = self.clip_dict['only_ln']
+        cls_fc = self.clip_dict.get('only_cls_fc', False)
         if conv1:  # only tune the first conv layer
             for p in model.visual.conv1.parameters():
                 p.requires_grad = True
@@ -62,8 +63,10 @@ class FTCLIPClassifier(BaseModel):
                 if isinstance(m, nn.LayerNorm):
                     for p in m.parameters():
                         p.requires_grad = True
+        if cls_fc:  # only tune the final projection head
+            model.visual.proj.requires_grad = True
         # tune all
-        if (not conv1) and (not bias) and (not ln):
+        if (not conv1) and (not bias) and (not ln) and (not cls_fc):
             for p in model.visual.parameters():
                 p.requires_grad = True
         # set as eval

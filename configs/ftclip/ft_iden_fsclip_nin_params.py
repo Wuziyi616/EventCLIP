@@ -49,6 +49,7 @@ class EventCLIPParams(BaseParams):
         only_conv1=False,  # only tune the first conv layer
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
+        only_cls_fc=False,  # only tune the embedding projection head
     )
 
     # adapter configs

@@ -46,10 +46,10 @@ class EventCLIPParams(BaseParams):
         arch='ViT-L/14',
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
-        only_conv1=True,  # only tune the first conv layer
+        only_conv1=False,  # only tune the first conv layer
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
-        only_cls_fc=False,  # only tune the embedding projection head
+        only_cls_fc=True,  # only tune the embedding projection head
     )
 
     # adapter configs
