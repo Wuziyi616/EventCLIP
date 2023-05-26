@@ -47,6 +47,8 @@ class EventCLIPParams(BaseParams):
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
         only_conv1=False,  # only tune the first conv layer
+        only_bias=False,  # only tune the bias terms
+        only_ln=False,  # only tune the LayerNorm layers
     )
 
     # adapter configs

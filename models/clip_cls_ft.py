@@ -47,10 +47,23 @@ class FTCLIPClassifier(BaseModel):
         for p in model.parameters():
             p.requires_grad = False
         # finetune CLIP.visual or its sub-layers
-        if self.clip_dict['only_conv1']:
+        conv1 = self.clip_dict['only_conv1']
+        bias = self.clip_dict['only_bias']
+        ln = self.clip_dict['only_ln']
+        if conv1:  # only tune the first conv layer
             for p in model.visual.conv1.parameters():
                 p.requires_grad = True
-        else:
+        if bias:  # only tune the bias terms
+            for name, p in model.visual.named_parameters():
+                if 'bias' in name and p is not None:
+                    p.requires_grad = True
+        if ln:  # only tune the LayerNorm layers
+            for m in model.visual.modules():
+                if isinstance(m, nn.LayerNorm):
+                    for p in m.parameters():
+                        p.requires_grad = True
+        # tune all
+        if (not conv1) and (not bias) and (not ln):
             for p in model.visual.parameters():
                 p.requires_grad = True
         # set as eval

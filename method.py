@@ -166,7 +166,7 @@ class EventCLIPMethod(EventBaseMethod):
                    self.model.named_parameters()))
         clip_params = list(
             filter(lambda kv: name in kv[0], self.model.named_parameters()))
-        assert len(adapter_params) > 0 and len(clip_params) > 0
+        # assert len(adapter_params) > 0 and len(clip_params) > 0
         params_list = [{
             'params': [kv[1] for kv in adapter_params],
             'lr': lr,
