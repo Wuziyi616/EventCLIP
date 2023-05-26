@@ -46,9 +46,13 @@ class FTCLIPClassifier(BaseModel):
         model = self.clip_dict['clip_model']
         for p in model.parameters():
             p.requires_grad = False
-        # finetune CLIP.visual
-        for p in model.visual.parameters():
-            p.requires_grad = True
+        # finetune CLIP.visual or its sub-layers
+        if self.clip_dict['only_conv1']:
+            for p in model.visual.conv1.parameters():
+                p.requires_grad = True
+        else:
+            for p in model.visual.parameters():
+                p.requires_grad = True
         # set as eval
         self.model = model.eval()
         self.logit_scale = model.logit_scale.exp().item()
@@ -70,7 +74,7 @@ class FTCLIPClassifier(BaseModel):
     def _build_prompts(self, adapter_type):
         """Build the text features for prompt tuning."""
         with torch.no_grad():
-            text_feats = self.get_text_feats().float()  # [n_classes, C]
+            text_feats = self._get_text_feats().float()  # [n_classes, C]
         self.text_feats = nn.Parameter(text_feats, requires_grad=True)
         adapter_type = adapter_type[5:]
         return adapter_type

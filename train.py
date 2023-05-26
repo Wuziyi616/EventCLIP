@@ -24,6 +24,9 @@ def main(params):
     arch = params.clip_dict.pop('arch')
     device = 'cuda'
     model, preprocess = clip.load(arch, device=device)
+    # cast weights to FP32
+    for p in model.visual.parameters():
+        p.data = p.data.float()
 
     # build dataset
     params.data_transforms = preprocess
@@ -106,7 +109,7 @@ if __name__ == "__main__":
     params = params.EventCLIPParams()
     params.ddp = args.ddp
 
-    assert params.model == 'FSCLIP', \
+    assert params.model != 'ZSCLIP', \
         'zero-shot EventCLIP does not require training'
 
     if args.N > 0:

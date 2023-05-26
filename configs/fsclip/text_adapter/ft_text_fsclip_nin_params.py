@@ -5,7 +5,7 @@ class EventCLIPParams(BaseParams):
     project = 'EventCLIP'
 
     # training settings
-    gpus = 1
+    gpus = 4
     max_epochs = 100
     save_interval = 1
     eval_interval = 5
@@ -16,7 +16,7 @@ class EventCLIPParams(BaseParams):
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
     lr = 2e-5
-    clip_lr = lr
+    clip_lr = lr / 10.
     warmup_steps_pct = 0.05
 
     # data settings
@@ -25,7 +25,7 @@ class EventCLIPParams(BaseParams):
     num_shots = None
     train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
-    num_workers = 16
+    num_workers = 8
 
     # event2img conversion
     quantize_args = dict(
@@ -46,6 +46,7 @@ class EventCLIPParams(BaseParams):
         arch='ViT-L/14',
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
+        only_conv1=False,  # only tune the first conv layer
     )
 
     # adapter configs
