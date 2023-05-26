@@ -9,6 +9,7 @@ import clip
 from nerv.training import BaseModel
 
 from .adapter import IdentityAdapter, TransformerAdapter
+from .lora import inject_trainable_lora
 
 
 class FTCLIPClassifier(BaseModel):
@@ -46,6 +47,10 @@ class FTCLIPClassifier(BaseModel):
         model = self.clip_dict['clip_model']
         for p in model.parameters():
             p.requires_grad = False
+        # LoRA fine-tuning
+        lora = self.clip_dict.get('lora', -1)
+        if lora > 0:
+            model = inject_trainable_lora(model, r=lora)
         # finetune CLIP.visual or its sub-layers
         conv1 = self.clip_dict['only_conv1']
         bias = self.clip_dict['only_bias']
