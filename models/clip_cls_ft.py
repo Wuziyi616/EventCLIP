@@ -50,7 +50,7 @@ class FTCLIPClassifier(BaseModel):
         # LoRA fine-tuning
         lora = self.clip_dict.get('lora', -1)
         if lora > 0:
-            model = inject_trainable_lora(model, r=lora)
+            model.visual = inject_trainable_lora(model.visual, r=lora)
         # finetune CLIP.visual or its sub-layers
         conv1 = self.clip_dict['only_conv1']
         bias = self.clip_dict['only_bias']
@@ -74,7 +74,7 @@ class FTCLIPClassifier(BaseModel):
         if cls_token:  # only tune the CLS token
             model.visual.class_embedding.requires_grad = True
         # tune all
-        if not (conv1 or bias or ln or cls_fc or cls_token):
+        if lora <= 0 and not (conv1 or bias or ln or cls_fc or cls_token):
             for p in model.visual.parameters():
                 p.requires_grad = True
         # set as eval
@@ -310,13 +310,21 @@ class FTCLIPClassifier(BaseModel):
     def state_dict(self):
         """Remove CLIP weight (keep `model.visual`) from the state dict."""
         w = super().state_dict()
-        w = {k: v for k, v in w.items() if ((not k.startswith('model.')) or k.startswith('model.visual.'))}
+        w = {
+            k: v
+            for k, v in w.items()
+            if ((not k.startswith('model.')) or k.startswith('model.visual.'))
+        }
         return w
 
     def load_state_dict(self, state_dict, strict=True):
         """Don't load CLIP weight (load `model.visual`) from the state dict."""
         # load CLIP weight from the state dict
-        clip_w = {f'model.{k}': v for k, v in self.model.state_dict().items() if not k.startswith('visual.')}
+        clip_w = {
+            f'model.{k}': v
+            for k, v in self.model.state_dict().items()
+            if not k.startswith('visual.')
+        }
         assert all(k not in state_dict for k in clip_w)
         state_dict = {**clip_w, **state_dict}
         super().load_state_dict(state_dict, strict=strict)

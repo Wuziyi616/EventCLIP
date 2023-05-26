@@ -259,6 +259,29 @@ class LoraInjectedMHA(MultiheadAttention):
         else:
             return attn_output, attn_output_weights
 
+    def __setattr__(self, name, value):
+        # special case hack for LoRA
+        def remove_from(*dicts_or_sets):
+            for d in dicts_or_sets:
+                if name in d:
+                    if isinstance(d, dict):
+                        del d[name]
+                    else:
+                        d.discard(name)
+
+        try:
+            super().__setattr__(name, value)
+            return
+        except TypeError:
+            pass
+
+        assert isinstance(getattr(self, name), nn.Parameter) and isinstance(
+            value, nn.Module)
+        remove_from(self.__dict__, self._buffers, self._parameters,
+                    self._modules, self._non_persistent_buffers_set)
+        modules = self.__dict__.get('_modules')
+        modules[name] = value
+
 
 def build_lora_proj(proj, r):
     """Given an old projection, build a LoRA projection."""
@@ -285,6 +308,8 @@ def build_lora_mha(mha, r):
         dtype=mha.out_proj.weight.dtype,
     )
     lora_mha.load_state_dict(mha.state_dict())
+    for p in lora_mha.parameters():
+        p.requires_grad = False
     # inject LoRA to projection head weights
     if mha._qkv_same_embed_dim:  # replace `in_proj_weight`
         lora_mha.in_proj_weight = build_lora_merged_proj(mha.in_proj_weight, r)
@@ -298,8 +323,12 @@ def build_lora_mha(mha, r):
 
 def inject_trainable_lora(model, r=4):
     """Replace all the MHA in `model` with LoRA-MHA."""
+    to_replace = []
     for name, module in model.named_modules():
         if isinstance(module, nn.MultiheadAttention):
             lora_mha = build_lora_mha(module, r)
-            setattr(model, name, lora_mha)
+            # setattr(model, name, lora_mha)
+            to_replace.append((name, lora_mha))
+    for name, lora_mha in to_replace:
+        setattr(model, name, lora_mha)
     return model
