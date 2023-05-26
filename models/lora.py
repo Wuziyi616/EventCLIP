@@ -12,23 +12,22 @@ def lora_w_init_(lora_down, lora_up, r):
 
 
 class LoraInjectedLinear(nn.Module):
+    """Apply LoRA to a standard Linear layer."""
 
-    def __init__(
-        self,
-        in_features,
-        out_features,
-        bias=False,
-        r=4,
-    ):
+    def __init__(self, linear, r=4):
         super().__init__()
 
+        in_features = linear.in_features
+        out_features = linear.out_features
         if r > min(in_features, out_features):
             raise ValueError(
                 f"LoRA rank {r} must be less or equal than {min(in_features, out_features)}"
             )
 
         self.r = r
-        self.linear = nn.Linear(in_features, out_features, bias)
+        self.linear = linear
+        for p in self.linear.parameters():
+            p.requires_grad = False
         self.lora_down = nn.Linear(in_features, r, bias=False)
         self.lora_up = nn.Linear(r, out_features, bias=False)
 
@@ -36,6 +35,26 @@ class LoraInjectedLinear(nn.Module):
 
     def forward(self, input):
         return (self.linear(input) + self.lora_up(self.lora_down(input)))
+
+    @property
+    def dtype(self):
+        """Return the dtype of the projection weight."""
+        return self.linear.weight.dtype
+
+    @property
+    def device(self):
+        """Return the device of the projection weight."""
+        return self.linear.weight.device
+
+    @property
+    def weight(self):
+        """Return the LoRA adjusted weight."""
+        return self.linear.weight + self.lora_up.weight @ self.lora_down.weight
+
+    @property
+    def bias(self):
+        """Return the bias of the projection layer."""
+        return self.linear.bias
 
 
 class LoraInjectedProj(nn.Module):
@@ -66,7 +85,17 @@ class LoraInjectedProj(nn.Module):
 
     def forward(self):
         """Return the LoRA updated weight."""
-        return (self.proj + self.lora_up @ self.lora_down)
+        return self.proj + self.lora_up @ self.lora_down
+
+    @property
+    def dtype(self):
+        """Return the dtype of the projection weight."""
+        return self.proj.dtype
+
+    @property
+    def device(self):
+        """Return the device of the projection weight."""
+        return self.proj.device
 
 
 class LoraInjectedMergedProj(nn.Module):
@@ -76,7 +105,7 @@ class LoraInjectedMergedProj(nn.Module):
     We learn three (lora_down [r, in_dim] and lora_up [d_model, r]).
     """
 
-    def __init__(self, merged_proj, r=4):
+    def __init__(self, merged_proj, r=4, lora_k=True):
         super().__init__()
 
         d_model_3, in_dim = merged_proj.shape
@@ -94,14 +123,17 @@ class LoraInjectedMergedProj(nn.Module):
 
         self.lora_down_q = nn.Parameter(torch.empty(r, in_dim))
         self.lora_up_q = nn.Parameter(torch.empty(d_model, r))
-        self.lora_down_k = nn.Parameter(torch.empty(r, in_dim))
-        self.lora_up_k = nn.Parameter(torch.empty(d_model, r))
         self.lora_down_v = nn.Parameter(torch.empty(r, in_dim))
         self.lora_up_v = nn.Parameter(torch.empty(d_model, r))
 
         lora_w_init_(self.lora_down_q, self.lora_up_q, r)
-        lora_w_init_(self.lora_down_k, self.lora_up_k, r)
         lora_w_init_(self.lora_down_v, self.lora_up_v, r)
+
+        self.lora_k = lora_k
+        if lora_k:
+            self.lora_down_k = nn.Parameter(torch.empty(r, in_dim))
+            self.lora_up_k = nn.Parameter(torch.empty(d_model, r))
+            lora_w_init_(self.lora_down_k, self.lora_up_k, r)
 
     def forward(self):
         """Return the LoRA updated weight."""
@@ -109,11 +141,22 @@ class LoraInjectedMergedProj(nn.Module):
             self.merged_proj[:self.d_model] +
             self.lora_up_q @ self.lora_down_q,
             self.merged_proj[self.d_model:2 * self.d_model] +
-            self.lora_up_k @ self.lora_down_k,
+            self.lora_up_k @ self.lora_down_k if self.lora_k else
+            self.merged_proj[self.d_model:2 * self.d_model],
             self.merged_proj[2 * self.d_model:] +
             self.lora_up_v @ self.lora_down_v,
         ],
                          dim=0)
+
+    @property
+    def dtype(self):
+        """Return the dtype of the projection weight."""
+        return self.merged_proj.dtype
+
+    @property
+    def device(self):
+        """Return the device of the projection weight."""
+        return self.merged_proj.device
 
 
 class LoraInjectedMHA(MultiheadAttention):
@@ -289,9 +332,10 @@ def build_lora_proj(proj, r):
     return lora_proj
 
 
-def build_lora_merged_proj(merged_proj, r):
+def build_lora_merged_proj(merged_proj, r, lora_k=True):
     """Given an old merged projection, build a LoRA merged projection."""
-    lora_merged_proj = LoraInjectedMergedProj(merged_proj=merged_proj, r=r)
+    lora_merged_proj = LoraInjectedMergedProj(
+        merged_proj=merged_proj, r=r, lora_k=lora_k)
     return lora_merged_proj
 
 
@@ -310,14 +354,31 @@ def build_lora_mha(mha, r):
     lora_mha.load_state_dict(mha.state_dict())
     for p in lora_mha.parameters():
         p.requires_grad = False
+    # parse LoRA arguments
+    # if it's an int, then it's the dim
+    # otherwise can be 'qv-$DIM', 'qkv-$DIM', 'qkvo-$DIM'
+    # by default we apply LoRA to q,k,v projections, no output projection
+    if not isinstance(r, int):
+        assert 'q' in r and 'v' in r
+        lora_k = ('k' in r)
+        lora_o = ('o' in r)
+        r = int(r.split('-')[-1])
+    else:
+        lora_k = True
+        lora_o = False
+    assert r > 0
     # inject LoRA to projection head weights
     if mha._qkv_same_embed_dim:  # replace `in_proj_weight`
-        lora_mha.in_proj_weight = build_lora_merged_proj(mha.in_proj_weight, r)
+        lora_mha.in_proj_weight = build_lora_merged_proj(
+            mha.in_proj_weight, r=r, lora_k=lora_k)
     else:  # replace `q_proj_weight`, `k_proj_weight`, `v_proj_weight`
         lora_mha.q_proj_weight = build_lora_proj(mha.q_proj_weight, r)
-        lora_mha.k_proj_weight = build_lora_proj(mha.k_proj_weight, r)
         lora_mha.v_proj_weight = build_lora_proj(mha.v_proj_weight, r)
-    # TODO: replace `out_proj.weight`
+        if lora_k:
+            lora_mha.k_proj_weight = build_lora_proj(mha.k_proj_weight, r)
+    # inject LoRA to output projection head weights
+    if lora_o:
+        lora_mha.out_proj = LoraInjectedLinear(mha.out_proj, r=r)
     return lora_mha
 
 
@@ -327,8 +388,16 @@ def inject_trainable_lora(model, r=4):
     for name, module in model.named_modules():
         if isinstance(module, nn.MultiheadAttention):
             lora_mha = build_lora_mha(module, r)
-            # setattr(model, name, lora_mha)
             to_replace.append((name, lora_mha))
     for name, lora_mha in to_replace:
-        setattr(model, name, lora_mha)
+        # cannot directly do `setattr(model, name, lora_mha)`
+        # name like `transformer.resblocks.23.attn`, containing `.` and numbers
+        # workaround: make it `transformer.resblocks[23].attn`
+        # then use `eval()`
+        for s in name.split('.'):
+            if s.isdigit():
+                name = name.replace(f'.{s}', f'[{s}]')
+        assert name[-4:] == 'attn'
+        m = eval(f'model.{name[:-5]}')
+        m.attn = lora_mha
     return model

@@ -49,7 +49,7 @@ class FTCLIPClassifier(BaseModel):
             p.requires_grad = False
         # LoRA fine-tuning
         lora = self.clip_dict.get('lora', -1)
-        if lora > 0:
+        if isinstance(lora, str) or lora > 0:
             model.visual = inject_trainable_lora(model.visual, r=lora)
         # finetune CLIP.visual or its sub-layers
         conv1 = self.clip_dict['only_conv1']
@@ -74,7 +74,8 @@ class FTCLIPClassifier(BaseModel):
         if cls_token:  # only tune the CLS token
             model.visual.class_embedding.requires_grad = True
         # tune all
-        if lora <= 0 and not (conv1 or bias or ln or cls_fc or cls_token):
+        if (isinstance(lora, int) and lora <= 0) and \
+                not (conv1 or bias or ln or cls_fc or cls_token):
             for p in model.visual.parameters():
                 p.requires_grad = True
         # set as eval
