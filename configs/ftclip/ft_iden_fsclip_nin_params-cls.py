@@ -50,13 +50,13 @@ class EventCLIPParams(BaseParams):
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
         only_cls_fc=False,  # only tune the embedding projection head
-        only_cls_token=False,  # only tune the CLS token
+        only_cls_token=True,  # only tune the CLS token
     )
 
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-identity',
+        adapter_type='identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,

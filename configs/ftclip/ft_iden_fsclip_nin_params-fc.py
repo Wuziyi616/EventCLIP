@@ -50,6 +50,7 @@ class EventCLIPParams(BaseParams):
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
         only_cls_fc=True,  # only tune the embedding projection head
+        only_cls_token=False,  # only tune the CLS token
     )
 
     # adapter configs
