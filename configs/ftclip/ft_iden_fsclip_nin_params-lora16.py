@@ -16,7 +16,7 @@ class EventCLIPParams(BaseParams):
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
     lr = 2e-5
-    clip_lr = lr * 10.
+    clip_lr = lr
     warmup_steps_pct = 0.05
 
     # data settings
@@ -46,7 +46,7 @@ class EventCLIPParams(BaseParams):
         arch='ViT-L/14',
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
-        lora=16,  # use LoRA fine-tuning, typically r = 4, 16
+        lora='qkvo-16',  # LoRA fine-tuning, 'qv-16', 'qkv-16' (int), 'qkvo-16'
         only_conv1=False,  # only tune the first conv layer
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
