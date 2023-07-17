@@ -4,6 +4,7 @@ import numpy as np
 
 import torch
 import torch.optim as optim
+import torch.cuda.amp as amp
 
 from nerv.training import BaseMethod, CosineAnnealingWarmupRestarts
 
@@ -51,6 +52,7 @@ class EventBaseMethod(BaseMethod):
         return sampled_idx.numpy()
 
     @torch.no_grad()
+    @amp.autocast()
     def validation_epoch(self, model, san_check_step=-1, sample_events=True):
         """Validate one epoch.
         We aggregate the avg of all statistics and only log once.

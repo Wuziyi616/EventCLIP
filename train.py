@@ -25,7 +25,7 @@ def main(params):
     device = 'cuda'
     model, preprocess = clip.load(arch, device=device)
     # cast weights to FP32
-    for p in model.visual.parameters():
+    for p in model.parameters():
         p.data = p.data.float()
 
     # build dataset
