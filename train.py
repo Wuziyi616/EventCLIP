@@ -24,6 +24,9 @@ def main(params):
     arch = params.clip_dict.pop('arch')
     device = 'cuda'
     model, preprocess = clip.load(arch, device=device)
+    # cast weights to FP32
+    for p in model.parameters():
+        p.data = p.data.float()
 
     # build dataset
     params.data_transforms = preprocess
@@ -90,6 +93,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EventCLIP')
     parser.add_argument('--params', type=str, required=True)
     parser.add_argument('--num_shots', type=int, default=-1)
+    parser.add_argument('--N', type=int, default=-1)
     parser.add_argument('--weight', type=str, default='', help='load weight')
     parser.add_argument('--fp16', action='store_true')
     parser.add_argument('--ddp', action='store_true')
@@ -105,8 +109,12 @@ if __name__ == "__main__":
     params = params.EventCLIPParams()
     params.ddp = args.ddp
 
-    assert params.model == 'FSCLIP', \
+    assert params.model != 'ZSCLIP', \
         'zero-shot EventCLIP does not require training'
+
+    if args.N > 0:
+        params.quantize_args['N'] = int(args.N * 1000)
+        args.params = args.params + f'-N_{args.N}'
 
     if args.num_shots > 0:
         params.num_shots = args.num_shots
