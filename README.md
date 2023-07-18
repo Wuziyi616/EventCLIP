@@ -2,23 +2,35 @@
 
 [**EventCLIP: Adapting CLIP for Event-based Object Recognition**](https://github.com/Wuziyi616/EventCLIP)<br/>
 [Ziyi Wu](https://wuziyi616.github.io/),
-Xudong Liu,
+[Xudong Liu](https://www.linkedin.com/in/xudong-frank-liu-566513198/),
 [Igor Gilitschenski](https://tisl.cs.utoronto.ca/author/igor-gilitschenski/)<br/>
-_[arXiv'23]() |
+_[arXiv'23](https://arxiv.org/abs/2306.06354) |
 [GitHub](https://github.com/Wuziyi616/EventCLIP) |
-[arXiv]()_
+[arXiv](https://arxiv.org/abs/2306.06354)_
 
 ## Introduction
 
-This is the official PyTorch implementation for paper: [EventCLIP: Adapting CLIP for Event-based Object Recognition]().
+This is the official PyTorch implementation for paper: [EventCLIP: Adapting CLIP for Event-based Object Recognition](https://arxiv.org/abs/2306.06354).
 The code contains:
 
 -   Zero-shot EventCLIP inference on N-Caltech, N-Cars, N-ImageNet datasets
--   Few-shot EventCLIP training and testing on the 3 datasets, with state-of-the-art classification performance
+-   Few-shot adaptation of EventCLIP on the three datasets, with SOTA results in the low-data regime
+-   Data-efficient fine-tuning of EventCLIP on N-ImageNet, achieving superior accuracy over fully-trained baselines
+
+### Motivation
+
+[Event cameras](https://tub-rip.github.io/eventvision2023/#null) are bio-inspired low-latency and energy-efficient sensors, which have gained significant interest recently.
+However, due to the lack of large-scale datasets, the event-based vision community cannot enjoy the recent success of foundation models in RGB vision.
+This paper thus seeks to adapt one of the most impactful VLM, [CLIP](https://openai.com/research/clip), to recognize event data.
+We study common practice in data-efficient model adaptation, and propose a general framework named EventCLIP.
+The overall pipeline is shown below:
+
+<p align="center"><img src="src/pipeline.png" alt="EventCLIP" width="800"/></p>
 
 ## Update
 
 -   2023.5.17: Initial code release!
+-   2023.7.17: Release fine-tuning code
 
 ## Installation
 
@@ -54,12 +66,17 @@ Please open an issue if you encounter any errors running the code.
 Please cite our paper if you find it useful in your research:
 
 ```
-
+@article{wu2023eventclip,
+  title={{EventCLIP}: Adapting CLIP for Event-based Object Recognition},
+  author={Wu, Ziyi and Liu, Xudong and Gilitschenski, Igor},
+  journal={arXiv preprint arXiv:2306.06354},
+  year={2023}
+}
 ```
 
 ## Acknowledgement
 
-We thank the authors of [CLIP](https://github.com/openai/CLIP), [EST](https://github.com/uzh-rpg/rpg_event_representation_learning), [n_imagenet](https://github.com/82magnolia/n_imagenet), [PointCLIP](https://github.com/ZrrSkywalker/PointCLIP) for opening source their wonderful works.
+We thank the authors of [CLIP](https://github.com/openai/CLIP), [EST](https://github.com/uzh-rpg/rpg_event_representation_learning), [n_imagenet](https://github.com/82magnolia/n_imagenet), [PointCLIP](https://github.com/ZrrSkywalker/PointCLIP), [LoRA](https://github.com/microsoft/LoRA) for opening source their wonderful works.
 
 ## License
 
