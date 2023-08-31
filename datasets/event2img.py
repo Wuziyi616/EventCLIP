@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset
 
 from .vis import events2frames
+from .augment import RandAugment, InterpolationMode
 
 
 class Event2ImageDataset(Dataset):
@@ -24,7 +25,18 @@ class Event2ImageDataset(Dataset):
             count_non_zero=False,  # hotpixel statistics
             background_mask=True,  # apply white background via alpha-masking
         ),
+        augment=False,
     ):
+
+        # data augmentation
+        self.augment = augment
+        if augment:
+            self.augmentation = RandAugment(
+                num_ops=2,  # follow common practice
+                interpolation=InterpolationMode.BICUBIC,  # CLIP uses bicubic
+                fill=[255, 255, 255]  # pad with white pixels
+                if quantize_args['background_mask'] else [0, 0, 0],
+            )
 
         # transforms to apply to the 2D images
         self.transforms = transforms
@@ -64,6 +76,8 @@ class Event2ImageDataset(Dataset):
         imgs = events2frames(events, **self.quantize_args)
         # to [N, 3, H, W] torch.Tensor as model inputs
         imgs = [Image.fromarray(img) for img in imgs]
+        if self.augment:
+            imgs = [self.augmentation(img) for img in imgs]
         imgs = torch.stack([self.transforms(img) for img in imgs])
 
         # randomly select a subset of images or pad with zeros
@@ -84,10 +98,11 @@ class Event2ImageDataset(Dataset):
         return data_dict
 
 
-def build_event2img_dataset(params, event_dataset):
+def build_event2img_dataset(params, event_dataset, augment=False):
     """Wrap an event dataset with a Event2Image processing pipeline."""
     return Event2ImageDataset(
         transforms=params.data_transforms,
         event_dataset=event_dataset,
         quantize_args=params.quantize_args,
+        augment=augment,
     )

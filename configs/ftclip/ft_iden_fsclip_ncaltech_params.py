@@ -16,6 +16,7 @@ class EventCLIPParams(BaseParams):
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
     lr = 1e-4
+    clip_lr = lr / 10.
     warmup_steps_pct = 0.05
 
     # data settings
@@ -40,19 +41,26 @@ class EventCLIPParams(BaseParams):
     )
 
     # model configs
-    model = 'FSCLIP'
+    model = 'FTCLIP'
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
         arch='ViT-L/14',
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
+        lora=-1,  # use LoRA fine-tuning, typically r = 4, 16
+        only_conv1=False,  # only tune the first conv layer
+        only_bias=False,  # only tune the bias terms
+        only_ln=False,  # only tune the LayerNorm layers
+        only_cls_fc=False,  # only tune the embedding projection head
+        only_cls_token=False,  # only tune the CLS token
+        # lora >> bias > conv > fc > ln > CLS
     )
 
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-identity',
+        adapter_type='identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,
