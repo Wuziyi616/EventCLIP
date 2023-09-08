@@ -6,8 +6,15 @@ from .caltech import NCaltech101
 class NCars(NCaltech101):
     """Dataset class for N-Cars dataset."""
 
-    def __init__(self, root, augmentation=False, num_shots=None, repeat=True):
-        super().__init__(root, augmentation, num_shots, repeat)
+    def __init__(
+        self,
+        root,
+        augmentation=False,
+        num_shots=None,
+        repeat=True,
+        semi_shots=None,
+    ):
+        super().__init__(root, augmentation, num_shots, repeat, semi_shots)
 
         # data stats
         self.resolution = (100, 120)
@@ -44,5 +51,6 @@ def build_n_cars_dataset(params, val_only=False):
         augmentation=True,
         num_shots=params.get('num_shots', None),
         repeat=False,
+        semi_shots=params.get('semi_shots', None),
     )
     return train_set, test_set

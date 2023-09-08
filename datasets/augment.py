@@ -143,8 +143,8 @@ class RandAugment(torch.nn.Module):
         """Randomly select `self.num_ops` augmentations to apply."""
         assert self.cur_ops is None, 'Unused RandAugment ops'
         self.cur_ops = []
-        num_magnitude_bins = 31
-        cur_magnitude = int(torch.randint(num_magnitude_bins + 1, (1,)).item())
+        num_magnitude_bins = 30
+        cur_magnitude = int(torch.randint(num_magnitude_bins, (1,)).item())
         op_meta = self._augmentation_space(num_magnitude_bins, resolution)
         for _ in range(self.num_ops):
             op_index = int(torch.randint(len(op_meta), (1,)).item())

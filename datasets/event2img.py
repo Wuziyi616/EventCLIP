@@ -62,24 +62,13 @@ class Event2ImageDataset(Dataset):
         # a hack in visualization to also load the raw events data
         self.keep_events = False
 
+        # semi-supervised learning
+        self.semi_sup = event_dataset.semi_sup
+
     def __len__(self):
         return len(self.event_dataset)
 
-    def __getitem__(self, idx):
-        data_dict = self.event_dataset[idx]
-        events = data_dict.pop('events')
-
-        if self.keep_events:
-            data_dict['events'] = copy.deepcopy(events)
-
-        # get [N, H, W, 3] images with dtype np.uint8
-        imgs = events2frames(events, **self.quantize_args)
-        # to [N, 3, H, W] torch.Tensor as model inputs
-        imgs = [Image.fromarray(img) for img in imgs]
-        if self.augment:
-            imgs = [self.augmentation(img) for img in imgs]
-        imgs = torch.stack([self.transforms(img) for img in imgs])
-
+    def _subsample_imgs(self, imgs):
         # randomly select a subset of images or pad with zeros
         valid_mask = torch.zeros(self.max_imgs).bool()
         if len(imgs) > self.max_imgs:
@@ -91,6 +80,56 @@ class Event2ImageDataset(Dataset):
             pad = torch.zeros(
                 (self.max_imgs - len(imgs), *imgs.shape[1:])).type_as(imgs)
             imgs = torch.cat([imgs, pad], dim=0)
+        return imgs, valid_mask
+
+    def _load_semi_sup_data(self, idx):
+        """Apply a strong data_aug and a weak data_aug to the same image."""
+        data_dict = self.event_dataset[idx]
+        events = data_dict.pop('events')
+
+        if self.keep_events:
+            data_dict['events'] = copy.deepcopy(events)
+
+        # get [N, H, W, 3] images with dtype np.uint8
+        imgs = events2frames(events, **self.quantize_args)
+        imgs = [Image.fromarray(img) for img in imgs]
+        weak_imgs = torch.stack([self.transforms(img) for img in imgs]).clone()
+        if self.augment:
+            imgs = self.augmentation(imgs)
+        strong_imgs = torch.stack([self.transforms(img) for img in imgs])
+        # to [N, 3, H, W] torch.Tensor as model inputs
+
+        # randomly select a subset of images or pad with zeros
+        weak_imgs, valid_mask = self._subsample_imgs(weak_imgs)
+        strong_imgs, valid_mask_ = self._subsample_imgs(strong_imgs)
+        assert (valid_mask == valid_mask_).all()
+
+        data_dict['weak_img'] = weak_imgs
+        data_dict['strong_img'] = strong_imgs
+        data_dict['valid_mask'] = valid_mask
+
+        return data_dict
+
+    def __getitem__(self, idx):
+        if self.semi_sup:
+            return self._load_semi_sup_data(idx)
+
+        data_dict = self.event_dataset[idx]
+        events = data_dict.pop('events')
+
+        if self.keep_events:
+            data_dict['events'] = copy.deepcopy(events)
+
+        # get [N, H, W, 3] images with dtype np.uint8
+        imgs = events2frames(events, **self.quantize_args)
+        imgs = [Image.fromarray(img) for img in imgs]
+        if self.augment:
+            imgs = self.augmentation(imgs)
+        imgs = torch.stack([self.transforms(img) for img in imgs])
+        # to [N, 3, H, W] torch.Tensor as model inputs
+
+        # randomly select a subset of images or pad with zeros
+        imgs, valid_mask = self._subsample_imgs(imgs)
 
         data_dict['img'] = imgs
         data_dict['valid_mask'] = valid_mask

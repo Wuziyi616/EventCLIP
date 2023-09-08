@@ -6,6 +6,7 @@ import torch
 import torch.optim as optim
 import torch.cuda.amp as amp
 
+from nerv.utils import AverageMeter, MeanMetric
 from nerv.training import BaseMethod, CosineAnnealingWarmupRestarts
 
 from datasets import events2frames
@@ -22,6 +23,8 @@ def build_method(**kwargs):
     params = kwargs['params']
     if params.model in ['ZSCLIP', 'FSCLIP', 'FTCLIP']:
         return EventCLIPMethod(**kwargs)
+    elif params.model.startswith('SS-'):
+        return SemiSupEventCLIPMethod(**kwargs)
     else:
         raise NotImplementedError(f'{params.model} method is not implemented.')
 
@@ -190,3 +193,42 @@ class EventCLIPMethod(EventBaseMethod):
         )
 
         return optimizer, (scheduler, 'step')
+
+
+class SemiSupEventCLIPMethod(EventCLIPMethod):
+
+    @torch.no_grad()
+    def _accumulate_stats(self, stats_dict, test=False):
+        """Append stats in `stats_dict` to `self.stats_dict`.
+
+        We assume that each value in stats_dict is a torch scalar.
+        In training time, only average over device:0, while at test time,
+            we need to gather metrics over all the device.
+        """
+        bs_ = stats_dict.pop('batch_size', 1)
+        # record accuracy
+        if 'unlabeled_num' not in stats_dict and not test:
+            assert 'unlabeled_acc' not in stats_dict
+            stats_dict['unlabeled_num'] = torch.tensor(0.)
+            stats_dict['unlabeled_acc'] = torch.tensor(0.)
+        if 'select_num' not in stats_dict and not test:
+            assert 'select_acc' not in stats_dict
+            stats_dict['select_num'] = torch.tensor(0.)
+            stats_dict['select_acc'] = torch.tensor(0.)
+        # we explicitly follow keys order for DDP sync
+        all_keys = sorted(list(stats_dict.keys()))
+        if self.stats_dict is None:
+            meter = MeanMetric if test else AverageMeter
+            self.stats_dict = {k: meter(device=self.device) for k in all_keys}
+        for k in all_keys:
+            if k == 'unlabeled_acc':
+                bs = int(stats_dict['unlabeled_num'].item())
+            elif k == 'select_acc':
+                bs = int(stats_dict['select_num'].item())
+            elif k in ['unlabeled_num', 'select_num']:
+                bs = 1
+            else:
+                bs = bs_
+            v = stats_dict[k]
+            item = self._make_tensor(v.item()) if test else v.item()
+            self.stats_dict[k].update(item, bs)

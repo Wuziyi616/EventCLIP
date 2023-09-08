@@ -7,12 +7,12 @@ conda create -n eventclip python=3.8.8
 conda activate eventclip
 ```
 
-Then install PyTorch which is compatible with your cuda setting.
-In our experiments, we use PyTorch 1.10.1 and CUDA 11.3 (PyTorch 1.12.1 + CUDA 11.3 is also tested, the CUDA version is fine as long as it meets the requirement [here](https://pytorch.org/get-started/previous-versions/). PyTorch 2.0 is not tested but could also be compatible):
+Then install PyTorch which is compatible with your CUDA setting.
+In our experiments, we use PyTorch 1.12.1 + CUDA 11.3 (the CUDA version is fine as long as it meets the requirement [here](https://pytorch.org/get-started/previous-versions/). PyTorch 2.0 is not tested but could also be compatible):
 
 ```
-conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
-pip install pytorch-lightning==1.6.2 torchmetrics==0.8.0
+conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
+pip install pytorch-lightning==1.8.6
 ```
 
 The codebase heavily relies on [nerv](https://github.com/Wuziyi616/nerv) for project template and Trainer.

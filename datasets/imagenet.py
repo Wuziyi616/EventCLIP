@@ -36,8 +36,9 @@ class NImageNet(NCaltech101):
         augmentation=False,
         num_shots=None,
         repeat=True,
+        semi_shots=None,
     ):
-        super().__init__(root, augmentation, num_shots, repeat)
+        super().__init__(root, augmentation, num_shots, repeat, semi_shots)
 
         # data stats
         self.resolution = (480, 640)
@@ -108,5 +109,6 @@ def build_n_imagenet_dataset(params, val_only=False, subset=-1):
         augmentation=True,
         num_shots=params.get('num_shots', None),
         repeat=False,
+        semi_shots=params.get('semi_shots', None),
     )
     return train_set, test_set

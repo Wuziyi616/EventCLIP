@@ -20,5 +20,6 @@ def build_dataset(params, val_only=False, **kwargs):
     if val_only:
         return build_event2img_dataset(val_params, event_dataset)
 
-    return build_event2img_dataset(train_params, event_dataset[0], augment=params.get('img_aug', False)), \
+    return build_event2img_dataset(
+        train_params, event_dataset[0], augment=params.get('img_aug', False)), \
         build_event2img_dataset(val_params, event_dataset[1], augment=False)
