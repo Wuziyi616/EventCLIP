@@ -122,9 +122,11 @@ if __name__ == "__main__":
 
         # adjust the batch size since N-Cars only have 2 classes
         if params.dataset == 'n_cars':
+            semi_shots = params.get('semi_shots', 0)
             params.train_batch_size = min(
-                params.num_shots * 2,  # 2 classes
+                (params.num_shots + semi_shots) * 2,  # 2 classes
                 params.train_batch_size)
+            print(f'Set batch size to {params.train_batch_size}')
 
     if args.fp16:
         print('INFO: using FP16 training!')

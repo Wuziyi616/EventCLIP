@@ -53,7 +53,6 @@ class EventCLIPParams(BaseParams):
         only_ln=False,  # only tune the LayerNorm layers
         only_cls_fc=False,  # only tune the embedding projection head
         only_cls_token=False,  # only tune the CLS token
-        # lora >> bias > conv > fc > ln > CLS
     )
 
     # adapter configs

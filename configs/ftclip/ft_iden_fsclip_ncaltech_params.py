@@ -6,7 +6,7 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 100
+    max_epochs = 50
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False
@@ -24,7 +24,7 @@ class EventCLIPParams(BaseParams):
     data_root = './data/N-Caltech101/'
     num_shots = None
     repeat_data = True
-    img_aug = False
+    img_aug = True
     train_batch_size = 32 // gpus
     val_batch_size = train_batch_size * 2
     num_workers = 8

@@ -80,7 +80,7 @@ def main(params, printing=True):
             logits_acc5_meter.update(logits_acc5, labels.shape[0])
 
     if not printing:
-        return probs_acc_meter.avg * 100., logits_acc_meter.avg * 100.
+        return probs_acc_meter.avg, logits_acc_meter.avg
 
     print(f'\n\nTesting {args.params}')
     print(f'Model weight: {args.weight}')
@@ -129,6 +129,7 @@ if __name__ == "__main__":
         main(params)
         exit(-1)
 
+    all_probs_acc, all_logits_acc = [], []
     for num_shot in args.train_shots:
         # first, find all dup-run dirs
         dup_weight_dir = os.path.join('checkpoint',
@@ -165,7 +166,16 @@ if __name__ == "__main__":
             logits_acc_avg.update(logits_acc, 1)
 
         # print the results for this `num_shot`
-        print(f'\n\nTesting {args.params}')
-        print(f'Average accuracy over {num_shot} shots:')
+        print(f'\n\nTesting {args.params}-{num_shot}shot')
+        print(f'Average accuracy over {probs_acc_avg.count} runs:')
         print(f'\tProbs-based accuracy@1: {probs_acc_avg.avg * 100.:.2f}%')
         print(f'\tLogits-based accuracy@1: {logits_acc_avg.avg * 100.:.2f}%\n')
+        all_probs_acc.append(round(probs_acc_avg.avg * 100., 2))
+        all_logits_acc.append(round(logits_acc_avg.avg * 100., 2))
+
+    # print the results for recording & LaTeX
+    print('\n\n')
+    print(f'Probs-based accuracy@1: {all_probs_acc}')
+    print('\t', ' & '.join([str(acc) for acc in all_probs_acc]))
+    print(f'Logits-based accuracy@1: {all_logits_acc}')
+    print('\t', ' & '.join([str(acc) for acc in all_logits_acc]))
