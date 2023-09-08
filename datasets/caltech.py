@@ -10,6 +10,16 @@ from torch.utils.data import Dataset
 from .utils import random_time_flip_events, random_shift_events, \
     random_flip_events_along_x, center_events
 
+# from https://github.com/KaiyangZhou/CoOp/blob/main/datasets/caltech101.py
+NEW_CNAMES = {
+    "airplanes": "airplane",
+    "Faces": "face",  # actually doesn't exist
+    "Faces_easy": "face",
+    "Leopards": "leopard",
+    "Motorbikes": "motorbike",
+    "BACKGROUND_Google": "background",  # random images, hard to categorize
+}
+
 
 class NCaltech101(Dataset):
     """Dataset class for N-Caltech101 dataset."""
@@ -21,6 +31,7 @@ class NCaltech101(Dataset):
         num_shots=None,
         repeat=True,
         semi_shots=None,
+        new_cnames=None,
     ):
         self.root = root
         self.classes = sorted(listdir(root))
@@ -59,6 +70,15 @@ class NCaltech101(Dataset):
             assert len(self.unlabeled_files) > 0
             print(f'\nSemi-supervised learning with {self.num_shots=} '
                   f'and {self.semi_shots=}\n')
+
+        # change some class names
+        if new_cnames is None:
+            return
+        for i in range(len(self.classes)):
+            if self.classes[i] in new_cnames:
+                new_name = new_cnames[self.classes[i]]
+                print(f'Rename {self.classes[i]} to {new_name}')
+                self.classes[i] = new_name
 
     def _get_sample_idx(self):
         """Load event file_name and label pairs."""
@@ -175,7 +195,7 @@ def build_n_caltech_dataset(params, val_only=False):
         return NCaltech101(
             root=os.path.join(params.data_root, 'testing'),
             augmentation=False,
-            num_shots=None,
+            new_cnames=NEW_CNAMES,
         )
 
     # build the training set
@@ -185,10 +205,11 @@ def build_n_caltech_dataset(params, val_only=False):
         num_shots=params.get('num_shots', None),
         repeat=params.get('repeat_data', True),
         semi_shots=params.get('semi_shots', None),
+        new_cnames=NEW_CNAMES,
     )
     val_set = NCaltech101(
         root=os.path.join(params.data_root, 'testing'),
         augmentation=False,
-        num_shots=None,
+        new_cnames=NEW_CNAMES,
     )
     return train_set, val_set

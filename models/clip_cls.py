@@ -341,6 +341,8 @@ class FSCLIPClassifier(ZSCLIPClassifier):
         probs = self._aggregate_probs(full_logits, valid_masks)
 
         out_dict = {
+            'full_logits': full_logits,  # [B, T, n_classes]
+            'valid_masks': valid_masks,  # [B, T]
             'logits': logits,  # [B, n_classes]
             'probs': probs,  # [B, n_classes]
         }

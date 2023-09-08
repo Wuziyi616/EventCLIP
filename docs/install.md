@@ -12,7 +12,7 @@ In our experiments, we use PyTorch 1.12.1 + CUDA 11.3 (the CUDA version is fine 
 
 ```
 conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
-pip install pytorch-lightning==1.8.6
+pip install pytorch-lightning==1.8.6 torchmetrics==0.11.4
 ```
 
 The codebase heavily relies on [nerv](https://github.com/Wuziyi616/nerv) for project template and Trainer.

@@ -19,7 +19,7 @@ from datasets import build_dataset
 
 
 @torch.no_grad()
-def main(params):
+def main(params, printing=True):
     # have to load CLIP model first
     arch = params.clip_dict['arch']
     device = 'cuda'
@@ -79,6 +79,9 @@ def main(params):
                 float().sum(dim=-1).mean().item()
             logits_acc5_meter.update(logits_acc5, labels.shape[0])
 
+    if not printing:
+        return probs_acc_meter.avg * 100., logits_acc_meter.avg * 100.
+
     print(f'\n\nTesting {args.params}')
     print(f'Model weight: {args.weight}')
     print(f'\tProbs-based accuracy@1: {probs_acc_meter.avg * 100.:.2f}%')
@@ -136,6 +139,9 @@ if __name__ == "__main__":
             if os.path.exists(weight_dir):
                 all_weight_dirs.append(weight_dir)
 
+        # average the accuracy over all weights
+        probs_acc_avg, logits_acc_avg = AverageMeter(), AverageMeter()
+
         # now, for each weight_dir, find a weight to test
         for weight_dir in all_weight_dirs:
             if not os.path.exists(weight_dir):
@@ -154,4 +160,12 @@ if __name__ == "__main__":
                     all_weights, key=lambda x: int(x[:-4].split('_')[1]))
                 args.weight = os.path.join(weight_dir, all_weights[-1])
 
-            main(params)
+            probs_acc, logits_acc = main(params, printing=False)
+            probs_acc_avg.update(probs_acc, 1)
+            logits_acc_avg.update(logits_acc, 1)
+
+        # print the results for this `num_shot`
+        print(f'\n\nTesting {args.params}')
+        print(f'Average accuracy over {num_shot} shots:')
+        print(f'\tProbs-based accuracy@1: {probs_acc_avg.avg * 100.:.2f}%')
+        print(f'\tLogits-based accuracy@1: {logits_acc_avg.avg * 100.:.2f}%\n')
