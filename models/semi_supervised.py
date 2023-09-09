@@ -80,8 +80,8 @@ class SemiSupervisedModel(BaseModel):
         # only train on confident pseudo labels
         conf_mask = self._select_labels(max_probs)  # [n]
         if conf_mask.any():
-            select_acc = (pred_labels[conf_mask] ==
-                          real_labels[conf_mask]).float().mean()
+            select_acc = (pred_labels[conf_mask] == real_labels[conf_mask]
+                          ).float().mean()
         else:
             select_acc = torch.tensor(0.).type_as(all_acc)
         log_dict = {
@@ -168,3 +168,22 @@ class SemiSupervisedModel(BaseModel):
     @property
     def device(self):
         return self.teacher.device
+
+    def state_dict(self):
+        student_w = self.student.state_dict()
+        teacher_w = self.teacher.state_dict()
+        w = {f'student.{k}': v for k, v in student_w.items()}
+        w.update({f'teacher.{k}': v for k, v in teacher_w.items()})
+        return w
+
+    def load_state_dict(self, state_dict, strict=True):
+        student_w = {
+            k[8:]: v
+            for k, v in state_dict.items() if k.startswith('student.')
+        }
+        teacher_w = {
+            k[8:]: v
+            for k, v in state_dict.items() if k.startswith('teacher.')
+        }
+        self.student.load_state_dict(student_w, strict=strict)
+        self.teacher.load_state_dict(teacher_w, strict=strict)

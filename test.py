@@ -96,6 +96,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EventCLIP')
     parser.add_argument('--params', type=str, required=True)
     parser.add_argument('--weight', type=str, default='', help='load weight')
+    parser.add_argument('--N', type=int, default=-1)
     parser.add_argument('--arch', type=str, default='')
     parser.add_argument('--prompt', type=str, default='')
     parser.add_argument('--bs', type=int, default=-1)
@@ -111,6 +112,9 @@ if __name__ == "__main__":
 
     # adjust params
     is_zs = (params.model == 'ZSCLIP')
+    if args.N > 0:
+        params.quantize_args['N'] = int(args.N * 1e3)
+        assert is_zs, 'can only change N in zero-shot testing'
     if args.arch:
         params.clip_dict['arch'] = args.arch
         assert is_zs, 'can only change ViT arch in zero-shot testing'
