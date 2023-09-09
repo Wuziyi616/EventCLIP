@@ -12,7 +12,7 @@ import torch
 import clip
 
 from nerv.utils import mkdir_or_exist
-from nerv.training import BaseDataModule
+from nerv.training import BaseDataModule, find_old_slurm_id
 
 from models import build_model
 from method import build_method
@@ -53,6 +53,8 @@ def main(params):
         # e.g. on our cluster, the temp dir is /checkpoint/$USR/$SLURM_JOB_ID/
         # TODO: modify this if you are not running on clusters
         SLURM_JOB_ID = os.environ.get('SLURM_JOB_ID')
+        if os.path.exists(ckp_path):
+            SLURM_JOB_ID = find_old_slurm_id(ckp_path)
         if SLURM_JOB_ID and not os.path.exists(ckp_path):
             os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
                 pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
@@ -68,6 +70,7 @@ def main(params):
         else:
             logger_name = exp_name
             logger_id = None
+
         wandb.init(
             project=params.project,
             name=logger_name,

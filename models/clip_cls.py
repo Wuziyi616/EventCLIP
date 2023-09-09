@@ -290,7 +290,8 @@ class FSCLIPClassifier(ZSCLIPClassifier):
     def get_text_feats(self, class_names=None):
         # finetune the text features (i.e. prompt tuning)
         if self.prompt_tuning:
-            assert self.text_feats.requires_grad, 'prompt should be trainable!'
+            assert self.text_feats.requires_grad or not self.training, \
+                'prompt should be trainable!'
             text_feats = F.normalize(self.text_feats, p=2, dim=-1)
         # otherwise, we use fixed text features
         else:

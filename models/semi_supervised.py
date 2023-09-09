@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
 from nerv.training import BaseModel
@@ -75,11 +76,12 @@ class SemiSupervisedModel(BaseModel):
         }
         pred_probs = self.teacher(unsup_data_dict)['probs']  # [n, n_cls]
         max_probs, pred_labels = pred_probs.max(dim=-1)  # [n]
-        all_acc = (pred_labels == real_labels).float().mean().item()
+        all_acc = (pred_labels == real_labels).float().mean()
         # only train on confident pseudo labels
         conf_mask = self._select_labels(max_probs)  # [n]
         if conf_mask.any():
-            select_acc = (pred_labels[conf_mask] == real_labels[conf_mask]).float().mean().item()
+            select_acc = (pred_labels[conf_mask] ==
+                          real_labels[conf_mask]).float().mean()
         else:
             select_acc = torch.tensor(0.).type_as(all_acc)
         log_dict = {
@@ -131,10 +133,10 @@ class SemiSupervisedModel(BaseModel):
         labels = out_dict['pse_labels']  # [B']
         logits = out_dict['logits']  # [B', n_classes]
         probs = out_dict['probs']  # [B', n_classes]
-        loss_dict = {'log_dict': out_dict['log_dict']}
-        if self.use_logits_loss:
+        loss_dict = out_dict.pop('log_dict')
+        if self.student.use_logits_loss:
             loss_dict['ce_loss'] = F.cross_entropy(logits, labels)
-        if self.use_probs_loss:
+        if self.student.use_probs_loss:
             probs = probs + 1e-6  # avoid nan
             loss_dict['ce_loss'] = F.nll_loss(probs.log(), labels)
         return loss_dict
@@ -152,6 +154,12 @@ class SemiSupervisedModel(BaseModel):
                 self.student, self.teacher, global_step, alpha=self.ema_alpha)
         else:
             copy_model_params(self.student, self.teacher)
+
+    def train(self, mode=True):
+        nn.Module.train(self, mode)
+        # keep the teacher model in eval mode
+        self.teacher.eval()
+        return self
 
     @property
     def dtype(self):
