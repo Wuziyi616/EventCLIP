@@ -46,6 +46,7 @@ echo "#!/bin/bash
 
 # set up SBATCH args
 #SBATCH --job-name=$SLRM_NAME
+#SBATCH --exclude=gpu150
 #SBATCH --output=$LOG_FILE
 #SBATCH --error=$LOG_FILE
 #SBATCH --open-mode=append

@@ -94,14 +94,13 @@ def build_n_imagenet_dataset(params, val_only=False, subset=-1):
         8: 'val_brightness_6',
         9: 'val_brightness_7',
     }
-    # val data may be under ".../val/extracted_xxx" or ".../extracted_xxx"
-    val_root = os.path.join(params.data_root, 'val') if os.path.exists(
-        os.path.join(params.data_root, 'val', 'extracted_val')) else \
-        params.data_root
     if subset > 0:
-        val_root = os.path.join(val_root, f'extracted_{val_names[subset]}')
+        val_set = val_names[subset]
+        val_root = os.path.join(params.data_root, f'extracted_{val_set}')
+        print('Using N-ImageNet subset:', val_set)
     else:
-        val_root = os.path.join(val_root, 'extracted_val')
+        val_root = os.path.join(params.data_root, 'extracted_val')
+        print('Using normal N-ImageNet val set')
 
     # only build the test set
     test_set = NImageNet(
