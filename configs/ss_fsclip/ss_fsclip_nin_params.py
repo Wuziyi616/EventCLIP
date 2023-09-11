@@ -52,7 +52,7 @@ class EventCLIPParams(BaseParams):
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-identity',
+        adapter_type='text-trans',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,

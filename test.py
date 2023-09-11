@@ -48,6 +48,7 @@ def main(params, printing=True):
     # don't load for zero-shot models
     if args.weight and not is_zs:
         model.load_weight(args.weight)
+        print(f'Loading weight: {args.weight}')
     model = model.cuda().eval()
 
     # test

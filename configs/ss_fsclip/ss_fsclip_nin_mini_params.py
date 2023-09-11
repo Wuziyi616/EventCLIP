@@ -10,29 +10,28 @@ class EventCLIPParams(BaseParams):
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False
-    n_samples = 5
+    n_samples = 10
 
     # optimizer settings
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
-    lr = 1e-4
+    lr = 2e-5
     warmup_steps_pct = 0.05
 
     # data settings
-    dataset = 'n_caltech'
-    data_root = './data/N-Caltech101/'
+    dataset = 'n_imagenet_mini'
+    data_root = './data/N_Imagenet/'
     num_shots = None
     semi_shots = 10
-    repeat_data = True
     img_aug = True
-    train_batch_size = 32 // gpus
+    train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
-    num_workers = 8
+    num_workers = 16
 
     # event2img conversion
     quantize_args = dict(
         max_imgs=2,
-        N=20000,
+        N=70000,
         split_method='event_count',
         convert_method='event_histogram',
         grayscale=True,
@@ -60,12 +59,12 @@ class EventCLIPParams(BaseParams):
         ffn_dim=d_model * 4,
         norm_first=True,
         num_layers=2,
-        residual=0.8,
+        residual=0.95,
     )
 
     # semi-supervised config
     ss_dict = dict(
-        conf_thresh=0.6,  # float: take preds > this; int: take top-K preds
+        conf_thresh=0.5,  # float: take preds > this; int: take top-K preds
         use_ema=True,
         ema_alpha=0.999,
     )

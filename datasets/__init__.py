@@ -3,6 +3,7 @@ import copy
 from .caltech import build_n_caltech_dataset, NCaltech101
 from .cars import build_n_cars_dataset, NCars
 from .imagenet import build_n_imagenet_dataset, NImageNet
+from .imagenet_mini import build_n_imagenet_mini_dataset, NImageNetMini
 from .event2img import build_event2img_dataset, Event2ImageDataset
 from .vis import events2frames
 

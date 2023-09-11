@@ -53,8 +53,8 @@ class NCaltech101(Dataset):
         # few-shot cls
         self.num_shots = num_shots  # number of labeled data per class
         self.semi_shots = semi_shots  # number of unlabeled data per class
-        self.semi_sup = (semi_shots is not None and semi_shots > 0)
         self.un_sup = (num_shots is not None and num_shots == 0)
+        self.semi_sup = (semi_shots is not None and semi_shots > 0)
         self.repeat = repeat
 
         self.labeled_files, self.unlabeled_files, self.labels, self.un_labels = \
