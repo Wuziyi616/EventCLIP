@@ -164,7 +164,7 @@ class NCaltech101(Dataset):
             label = int(self.labels[idx])
         else:
             f = str(self.unlabeled_files[idx - len(self.labeled_files)])
-            label = -1 * int(self.un_labels[idx - len(self.labeled_files)])
+            label = -1 * int(self.un_labels[idx - len(self.labeled_files)]) - 1
         events = self._load_events(f)
         # the spatial resolution of N-Caltech events is 180x240
         # we should center the spatial coordinates of events

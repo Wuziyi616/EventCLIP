@@ -103,10 +103,12 @@ class SemiSupervisedModel(BaseModel):
         labels = data_dict['label']  # [B]
 
         # generate pseudo labels on unlabeled samples
+        # loaded unsup_label = -1 * real_label - 1
+        # so real_label = -1 * unsup_label - 1
         unsup_mask = (labels < 0)  # [B]
         sup_mask = (~unsup_mask)  # [B]
         if unsup_mask.any():
-            real_labels = labels[unsup_mask] * -1  # [n]
+            real_labels = -1 * labels[unsup_mask] - 1  # [n]
             pred_labels, conf_mask, log_dict = self._generate_labels(
                 weak_imgs[unsup_mask], valid_masks[unsup_mask], real_labels)
             unsup_mask[unsup_mask.clone()] = conf_mask
@@ -150,8 +152,16 @@ class SemiSupervisedModel(BaseModel):
         """Things to do at the end of every training step."""
         if self.use_ema:
             global_step = method.it
-            ema_model_update(
-                self.student, self.teacher, global_step, alpha=self.ema_alpha)
+            if self.ema_alpha > 1:  # TODO: ugly hack for update every X steps
+                assert isinstance(self.ema_alpha, int)
+                if (global_step + 1) % self.ema_alpha == 0:
+                    copy_model_params(self.student, self.teacher)
+                    print(f'Copy model params at step {global_step}')
+            else:
+                assert 0. <= self.ema_alpha <= 1.
+                ema_model_update(
+                    self.student, self.teacher, global_step,
+                    alpha=self.ema_alpha)
         else:
             copy_model_params(self.student, self.teacher)
 

@@ -44,8 +44,8 @@ class EventCLIPParams(BaseParams):
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
-        arch='ViT-L/14',
-        prompt='a point cloud image of a {}',
+        arch='ViT-B/32',  # to compare with Ev-LaFOR
+        prompt='a sketch image of a {}',
         agg_func='mean',  # aggregate the logits over views
     )
 

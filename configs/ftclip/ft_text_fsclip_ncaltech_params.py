@@ -6,7 +6,7 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 100
+    max_epochs = 50
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False
@@ -16,13 +16,13 @@ class EventCLIPParams(BaseParams):
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
     lr = 1e-4
+    clip_lr = lr / 10.
     warmup_steps_pct = 0.05
 
     # data settings
     dataset = 'n_caltech'
     data_root = './data/N-Caltech101/'
     num_shots = None
-    semi_shots = 10
     repeat_data = True
     img_aug = True
     train_batch_size = 32 // gpus
@@ -41,19 +41,26 @@ class EventCLIPParams(BaseParams):
     )
 
     # model configs
-    model = 'SS-FSCLIP'
+    model = 'FTCLIP'
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
-        arch='ViT-B/32',  # to compare with Ev-LaFOR
+        arch='ViT-B/16',  # to compare with E-CLIP
         prompt='a sketch image of a {}',
         agg_func='mean',  # aggregate the logits over views
+        lora=-1,  # use LoRA fine-tuning, typically r = 4, 16
+        only_conv1=False,  # only tune the first conv layer
+        only_bias=False,  # only tune the bias terms
+        only_ln=False,  # only tune the LayerNorm layers
+        only_cls_fc=False,  # only tune the embedding projection head
+        only_cls_token=False,  # only tune the CLS token
+        # lora >> bias > conv > fc > ln > CLS
     )
 
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-trans',
+        adapter_type='text-identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,
@@ -61,13 +68,6 @@ class EventCLIPParams(BaseParams):
         norm_first=True,
         num_layers=2,
         residual=0.8,
-    )
-
-    # semi-supervised config
-    ss_dict = dict(
-        conf_thresh=0.6,  # float: take preds > this; int: take top-K preds
-        use_ema=True,
-        ema_alpha=0.999,
     )
 
     # loss configs
