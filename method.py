@@ -211,6 +211,8 @@ class SemiSupEventCLIPMethod(EventCLIPMethod):
             assert 'unlabeled_acc' not in stats_dict
             stats_dict['unlabeled_num'] = torch.tensor(0.)
             stats_dict['unlabeled_acc'] = torch.tensor(0.)
+            assert 'student_unlabeled_acc' not in stats_dict
+            stats_dict['student_unlabeled_acc'] = torch.tensor(0.)
         if 'select_num' not in stats_dict and not test:
             assert 'select_acc' not in stats_dict
             stats_dict['select_num'] = torch.tensor(0.)
@@ -221,11 +223,11 @@ class SemiSupEventCLIPMethod(EventCLIPMethod):
             meter = MeanMetric if test else AverageMeter
             self.stats_dict = {k: meter(device=self.device) for k in all_keys}
         for k in all_keys:
-            if k == 'unlabeled_acc':
+            if k in ['unlabeled_acc', 'student_unlabeled_acc']:
                 bs = int(stats_dict['unlabeled_num'].item())
             elif k == 'select_acc':
                 bs = int(stats_dict['select_num'].item())
-            elif k in ['unlabeled_num', 'select_num']:
+            elif k in ['unlabeled_num', 'select_num', 'min_select_probs']:
                 bs = 1
             else:
                 bs = bs_

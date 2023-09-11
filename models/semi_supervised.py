@@ -7,9 +7,7 @@ from nerv.training import BaseModel
 
 @torch.no_grad()
 def ema_model_update(model, ema_model, global_step, alpha=0.999):
-    # Use the true average until the exponential average is more correct
-    # Follow SoftTeacher and 3DIoUMatch
-    alpha = min(1. - 1. / (global_step + 1.), alpha)
+    assert 0. < alpha < 1.
     for ema_param, param in zip(ema_model.parameters(), model.parameters()):
         if param.requires_grad:
             ema_param.data.mul_(alpha).add_(param.data, alpha=1. - alpha)
@@ -26,14 +24,17 @@ def copy_model_params(src_model, model):
 class SemiSupervisedModel(BaseModel):
     """Student-Teacher semi-supervised model."""
 
-    def __init__(self,
-                 student,
-                 teacher,
-                 ss_dict=dict(
-                     conf_thresh=0.8,
-                     use_ema=True,
-                     ema_alpha=0.999,
-                 )):
+    def __init__(
+        self,
+        student,
+        teacher,
+        ss_dict=dict(
+            topk=16,  # take top-K preds
+            conf_thresh=0.0,  # take preds with conf > thresh
+            use_ema=True,
+            ema_alpha=0.999,
+        ),
+    ):
         super().__init__()
 
         self.student = student
@@ -42,28 +43,23 @@ class SemiSupervisedModel(BaseModel):
         for p in self.teacher.parameters():
             p.requires_grad = False
 
+        self.topk = ss_dict['topk']
+        assert isinstance(self.topk, int) and self.topk > 0
         self.conf_thresh = ss_dict['conf_thresh']
-        if isinstance(self.conf_thresh, int):
-            assert self.conf_thresh >= 1
-            print(f'Using top-K={self.conf_thresh} pseudo labels.')
-        elif isinstance(self.conf_thresh, float):
-            assert 0. <= self.conf_thresh <= 1.
-            print(f'Using pseudo labels with conf>={self.conf_thresh}.')
-        else:
-            raise ValueError(f'Invalid conf_thresh: {self.conf_thresh}')
+        assert 0. <= self.conf_thresh <= 1.
         self.use_ema = ss_dict['use_ema']
         self.ema_alpha = ss_dict['ema_alpha']
 
     @torch.no_grad()
     def _select_labels(self, max_probs):
         """Select the pseudo labels with high confidence."""
-        if isinstance(self.conf_thresh, float):  # thresholding
-            conf_mask = (max_probs >= self.conf_thresh)
-        else:  # top-K
-            conf_mask = torch.zeros_like(max_probs).bool()
-            idxs = max_probs.topk(
-                self.conf_thresh, dim=0, largest=True, sorted=False)[1]
-            conf_mask[idxs] = True
+        # topk OR conf > thresh
+        conf_mask = (max_probs > self.conf_thresh)
+        if conf_mask.sum() >= self.topk:
+            return conf_mask
+        conf_mask = torch.zeros_like(max_probs).bool()
+        idxs = max_probs.topk(self.topk, dim=0, largest=True, sorted=False)[1]
+        conf_mask[idxs] = True
         return conf_mask
 
     @torch.no_grad()
@@ -89,7 +85,14 @@ class SemiSupervisedModel(BaseModel):
             'unlabeled_num': torch.tensor(len(real_labels)).type_as(all_acc),
             'select_acc': select_acc,
             'select_num': conf_mask.float().sum(),
+            'min_select_probs': max_probs[conf_mask].min(),
         }
+        # also compute acc of student model (ideally should be < teacher)
+        self.student.eval()
+        student_probs = self.student(unsup_data_dict)['probs']  # [n, n_cls]
+        student_acc = (student_probs.argmax(-1) == real_labels).float().mean()
+        log_dict['student_unlabeled_acc'] = student_acc
+        self.student.train()
         return pred_labels, conf_mask, log_dict
 
     def forward(self, data_dict):
@@ -136,6 +139,8 @@ class SemiSupervisedModel(BaseModel):
         logits = out_dict['logits']  # [B', n_classes]
         probs = out_dict['probs']  # [B', n_classes]
         loss_dict = out_dict.pop('log_dict')
+        with torch.no_grad():
+            loss_dict['acc'] = (probs.argmax(-1) == labels).float().mean()
         if self.student.use_logits_loss:
             loss_dict['ce_loss'] = F.cross_entropy(logits, labels)
         if self.student.use_probs_loss:
@@ -152,16 +157,8 @@ class SemiSupervisedModel(BaseModel):
         """Things to do at the end of every training step."""
         if self.use_ema:
             global_step = method.it
-            if self.ema_alpha > 1:  # TODO: ugly hack for update every X steps
-                assert isinstance(self.ema_alpha, int)
-                if (global_step + 1) % self.ema_alpha == 0:
-                    copy_model_params(self.student, self.teacher)
-                    print(f'Copy model params at step {global_step}')
-            else:
-                assert 0. <= self.ema_alpha <= 1.
-                ema_model_update(
-                    self.student, self.teacher, global_step,
-                    alpha=self.ema_alpha)
+            ema_model_update(
+                self.student, self.teacher, global_step, alpha=self.ema_alpha)
         else:
             copy_model_params(self.student, self.teacher)
 

@@ -64,7 +64,10 @@ class EventCLIPParams(BaseParams):
 
     # semi-supervised config
     ss_dict = dict(
-        conf_thresh=0.5,  # float: take preds > this; int: take top-K preds
+        # the logic is OR, i.e. we will take at lease `topk` examples
+        # but if there are many whose conf > thresh, then we take all of them
+        topk=96 // gpus,  # take top-K preds
+        conf_thresh=0.5,  # take preds with conf > thresh
         use_ema=True,
         ema_alpha=0.999,
     )

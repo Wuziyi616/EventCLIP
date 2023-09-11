@@ -16,14 +16,14 @@ class EventCLIPParams(BaseParams):
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
     lr = 2e-5
-    clip_lr = lr / 10.
+    clip_lr = lr
     warmup_steps_pct = 0.05
 
     # data settings
     dataset = 'n_imagenet'
     data_root = './data/N_Imagenet/'
     num_shots = None
-    img_aug = False
+    img_aug = True
     train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
     num_workers = 8
@@ -47,7 +47,7 @@ class EventCLIPParams(BaseParams):
         arch='ViT-L/14',
         prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
-        lora=-1,  # use LoRA fine-tuning, typically r = 4, 16
+        lora='qkvo-16',  # LoRA fine-tuning, 'qv-16', 'qkv-16' (int), 'qkvo-16'
         only_conv1=False,  # only tune the first conv layer
         only_bias=False,  # only tune the bias terms
         only_ln=False,  # only tune the LayerNorm layers
@@ -58,7 +58,7 @@ class EventCLIPParams(BaseParams):
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='identity',
+        adapter_type='text-identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,

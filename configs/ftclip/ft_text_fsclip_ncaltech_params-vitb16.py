@@ -46,7 +46,7 @@ class EventCLIPParams(BaseParams):
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
         arch='ViT-B/16',  # to compare with E-CLIP
-        prompt='a sketch image of a {}',
+        prompt='a point cloud image of a {}',
         agg_func='mean',  # aggregate the logits over views
         lora=-1,  # use LoRA fine-tuning, typically r = 4, 16
         only_conv1=False,  # only tune the first conv layer

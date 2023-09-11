@@ -55,9 +55,12 @@ def main(params):
         SLURM_JOB_ID = os.environ.get('SLURM_JOB_ID')
         if os.path.exists(ckp_path):
             SLURM_JOB_ID = find_old_slurm_id(ckp_path)
-        if SLURM_JOB_ID and not os.path.exists(ckp_path):
-            os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
-                pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
+        else:
+            if SLURM_JOB_ID:
+                os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
+                    pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
+            else:
+                os.makedirs(ckp_path, exist_ok=True)
 
         # it's not good to hard-code the wandb id
         # but on preemption clusters, we want the job to resume the same wandb
