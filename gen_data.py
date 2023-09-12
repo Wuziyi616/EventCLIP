@@ -28,6 +28,9 @@ def main(params):
     # build training dataset for generating pseudo labels
     params.data_transforms = preprocess
     tta = args.tta
+    is_nin = ('n_imagenet' in params.dataset)
+    if not is_nin:
+        assert params.dataset == 'n_caltech'
     test_set = build_dataset(params, val_only=False, gen_data=True, tta=tta)
 
     datamodule = BaseDataModule(
@@ -55,10 +58,12 @@ def main(params):
     total_num = len(labels)
     gt_class_cnt = {k: (labels == i).sum() for i, k in enumerate(class_names)}
     thresh_class_cnt = {k: 0 for k in class_names}
+    pred_path2cls = {}
 
     conf_thresh = args.conf_thresh
     select_num = 0
     for data_dict in tqdm(test_loader):
+        data_idx = data_dict.pop('data_idx').numpy()  # [B]
         data_dict = {k: v.cuda() for k, v in data_dict.items()}
         if tta:  # loaded data in shape [B, 4, N, ...]
             data_dict['img'] = data_dict['img'].flatten(0, 1)
@@ -67,16 +72,32 @@ def main(params):
         labels = data_dict['label']  # [B]
 
         # based on aggregated probs
-        probs = out_dict['probs']
+        pred_probs = out_dict['probs']
         # TODO: aggregate probs in a better way
         if tta:
-            probs = probs.unflatten(0, (-1, 4)).mean(dim=1)  # [B, n_cls]
+            probs = pred_probs.unflatten(0, (-1, 4))  # [B, 4, n_cls]
+            tta_mask = torch.ones_like(labels).bool()  # [B]
+            # predictions over 4 views should be consistent
+            if args.tta_consistent:
+                pred_cls = probs.argmax(dim=-1)  # [B, 4]
+                tta_mask &= (pred_cls[:, 0] == pred_cls[:, 1]) & \
+                    (pred_cls[:, 0] == pred_cls[:, 2]) & \
+                    (pred_cls[:, 0] == pred_cls[:, 3])
+            # the minimum confidence should be larger than conf_thresh
+            if args.tta_min_prob:
+                min_probs = probs.max(-1).values.min(-1).values
+                tta_mask &= (min_probs > conf_thresh)
+            probs = probs.mean(dim=1)  # [B, n_cls]
+        else:
+            probs = pred_probs
         probs_acc = (probs.argmax(dim=-1) == labels).float().mean().item()
         all_acc_meter.update(probs_acc, labels.shape[0])
 
         # only trust probs > conf_thresh
         max_probs, pred_labels = probs.max(dim=-1)
         sel_mask = (max_probs > conf_thresh)
+        if tta:
+            sel_mask &= tta_mask
         correct_mask = sel_mask & (pred_labels == labels)
         thresh_acc = correct_mask.float().mean().item()
         thresh_acc_meter.update(thresh_acc, labels.shape[0])
@@ -87,6 +108,9 @@ def main(params):
         for i, lbl in enumerate(labels):
             if correct_mask[i].item():
                 thresh_class_cnt[class_names[lbl.item()]] += 1
+            if sel_mask[i].item():
+                ev_path = test_set.labeled_files[data_idx[i]]
+                pred_path2cls[ev_path] = class_names[pred_labels[i].item()]
 
     print('\nClass stats:')
     for k in class_names:
@@ -102,15 +126,51 @@ def main(params):
     print(f'\tThreshold-based accuracy@1: {thresh_acc_meter.avg * 100.:.2f}%')
     print(f'\tSelected accuracy@1: {select_num}/{total_num} -- {sel_acc_meter.avg * 100.:.2f}%')
 
+    if not args.save_path:
+        return
+    # save pseudo labels to a new dataset
+    save_path = args.save_path
+    train_path = os.path.join(save_path, 'extracted_train') if \
+        is_nin else os.path.join(save_path, 'training')
+    assert not os.path.exists(save_path), f'{save_path} already exists!'
+    os.makedirs(train_path, exist_ok=True)
+    for path, pred_cls in pred_path2cls.items():
+        while os.path.islink(path):
+            path = os.readlink(path)
+        # path: xxx/N-Caltech101/training/airplanes/airplanes_150.npy
+        #       xxx/N_Imagenet/extracted_train/n02114855/n02114855_15515.npz
+        # pred_cls is a semantic class name
+        if is_nin:
+            folder_name = test_set.event_dataset.name2folder[pred_cls]
+        else:
+            folder_name = pred_cls
+        ev_name = os.path.basename(path)
+        # save to train_path/folder_name/ev_name
+        # use soft link to save disk space
+        new_path = os.path.join(train_path, folder_name, ev_name)
+        os.makedirs(os.path.dirname(new_path), exist_ok=True)
+        os.symlink(path, new_path)
+    print(f'\nSaved pseudo labels to {save_path}')
+    # some classes don't have any pseudo labels
+    # we still create the folder for consistency
+    for k in class_names:
+        if is_nin:
+            folder_name = test_set.event_dataset.name2folder[k]
+        else:
+            folder_name = k
+        folder_path = os.path.join(train_path, folder_name)
+        os.makedirs(folder_path, exist_ok=True)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EventCLIP')
     parser.add_argument('--params', type=str, required=True)
+    parser.add_argument('--save_path', type=str, default='')
     parser.add_argument('--weight', type=str, default='', help='load weight')
-    parser.add_argument('--conf_thresh', type=float, default=0.5)
+    parser.add_argument('--conf_thresh', type=float, default=-1.)
     parser.add_argument('--tta', action='store_true')
-    parser.add_argument('--N', type=int, default=-1)
-    parser.add_argument('--arch', type=str, default='')
+    parser.add_argument('--tta_consistent', action='store_true')
+    parser.add_argument('--tta_min_prob', action='store_true')
     parser.add_argument('--prompt', type=str, default='')
     parser.add_argument('--bs', type=int, default=-1)
     args = parser.parse_args()
@@ -123,12 +183,6 @@ if __name__ == "__main__":
 
     # adjust params
     is_zs = (params.model == 'ZSCLIP')
-    if args.N > 0:
-        params.quantize_args['N'] = int(args.N * 1e3)
-        assert is_zs, 'can only change N in zero-shot testing'
-    if args.arch:
-        params.clip_dict['arch'] = args.arch
-        assert is_zs, 'can only change ViT arch in zero-shot testing'
     if args.prompt:
         params.clip_dict['prompt'] = args.prompt
         assert is_zs, 'can only change text prompt in zero-shot testing'

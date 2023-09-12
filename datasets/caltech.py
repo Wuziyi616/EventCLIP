@@ -91,6 +91,9 @@ class NCaltech101(Dataset):
                 join(self.root, c, f)
                 for f in sorted(listdir(join(self.root, c)))
             ]
+            if len(cls_files) == 0:
+                print(f'Warning: class {c} has no data!')
+                continue
 
             # randomly sample `num_shots` labeled data for each class
             if self.num_shots is not None and self.num_shots > 0:

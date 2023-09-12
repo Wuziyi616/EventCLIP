@@ -12,7 +12,7 @@ class EventCLIPParams(BaseParams):
     data_root = './data/N_Imagenet/'
     train_batch_size = 32 // gpus
     val_batch_size = train_batch_size * 2
-    num_workers = 8
+    num_workers = 16
 
     # event2img conversion
     quantize_args = dict(
