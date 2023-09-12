@@ -22,7 +22,6 @@ class EventCLIPParams(BaseParams):
     dataset = 'n_caltech'
     data_root = './data/N-Caltech101/'
     num_shots = None
-    semi_shots = 10
     repeat_data = True
     img_aug = True
     train_batch_size = 32 // gpus
@@ -41,11 +40,11 @@ class EventCLIPParams(BaseParams):
     )
 
     # model configs
-    model = 'SS-FSCLIP'
+    model = 'FSCLIP'
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
-        arch='ViT-B/32',  # to compare with Ev-LaFOR
+        arch='ViT-B/32',
         prompt='a sketch image of a {}',
         agg_func='mean',  # aggregate the logits over views
     )
@@ -53,7 +52,7 @@ class EventCLIPParams(BaseParams):
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-trans',
+        adapter_type='text-identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,
@@ -61,13 +60,6 @@ class EventCLIPParams(BaseParams):
         norm_first=True,
         num_layers=2,
         residual=0.8,
-    )
-
-    # semi-supervised config
-    ss_dict = dict(
-        conf_thresh=0.6,  # float: take preds > this; int: take top-K preds
-        use_ema=True,
-        ema_alpha=0.999,
     )
 
     # loss configs

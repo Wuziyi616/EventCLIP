@@ -19,10 +19,9 @@ class EventCLIPParams(BaseParams):
     warmup_steps_pct = 0.05
 
     # data settings
-    dataset = 'n_imagenet'
+    dataset = 'n_imagenet_mini'
     data_root = './data/N_Imagenet/'
     num_shots = None
-    semi_shots = 10
     img_aug = True
     train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
@@ -40,19 +39,19 @@ class EventCLIPParams(BaseParams):
     )
 
     # model configs
-    model = 'SS-FSCLIP'
+    model = 'FSCLIP'
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
-        arch='ViT-L/14',
-        prompt='a point cloud image of a {}',
+        arch='ViT-B/32',
+        prompt='a sketch image of a {}',
         agg_func='mean',  # aggregate the logits over views
     )
 
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-trans',
+        adapter_type='text-identity',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,
@@ -60,13 +59,6 @@ class EventCLIPParams(BaseParams):
         norm_first=True,
         num_layers=2,
         residual=0.95,
-    )
-
-    # semi-supervised config
-    ss_dict = dict(
-        conf_thresh=0.5,  # float: take preds > this; int: take top-K preds
-        use_ema=True,
-        ema_alpha=0.999,
     )
 
     # loss configs

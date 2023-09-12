@@ -6,7 +6,7 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 30
+    max_epochs = 20
     save_interval = 0.5
     eval_interval = 2
     save_epoch_end = False
@@ -15,7 +15,7 @@ class EventCLIPParams(BaseParams):
     # optimizer settings
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
-    lr = 5e-5
+    lr = 3e-4
     warmup_steps_pct = 0.05
 
     # data settings
@@ -66,7 +66,7 @@ class EventCLIPParams(BaseParams):
     ss_dict = dict(
         # the logic is OR, i.e. we will take at lease `topk` examples
         # but if there are many whose conf > thresh, then we take all of them
-        topk=96 // gpus,  # take top-K preds
+        topk=64 // gpus,  # take top-K preds
         conf_thresh=1.0,  # take preds with conf > thresh
         use_ema=True,
         ema_alpha=0.999,
