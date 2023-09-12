@@ -188,12 +188,20 @@ class NCaltech101(Dataset):
         }
 
 
-def build_n_caltech_dataset(params, val_only=False):
+def build_n_caltech_dataset(params, val_only=False, gen_data=False):
     """Build the N-Caltech101 dataset."""
     # only build the test set
     if val_only:
+        assert not gen_data, 'Only generate pseudo labels on the training set'
         return NCaltech101(
             root=os.path.join(params.data_root, 'testing'),
+            augmentation=False,
+            new_cnames=NEW_CNAMES,
+        )
+    # build the training set for pseudo label generation
+    if gen_data:
+        return NCaltech101(
+            root=os.path.join(params.data_root, 'training'),
             augmentation=False,
             new_cnames=NEW_CNAMES,
         )

@@ -9,18 +9,18 @@ from .vis import events2frames
 
 
 def build_dataset(params, val_only=False, **kwargs):
+    tta = kwargs.pop('tta', False)
     dst = params.dataset
-    event_dataset = eval(f'build_{dst}_dataset')(
-        params, val_only=val_only, **kwargs)
+    ev_dst = eval(f'build_{dst}_dataset')(params, val_only=val_only, **kwargs)
 
     # adjust max-views for event2img conversion
     train_params = copy.deepcopy(params)
     val_params = copy.deepcopy(params)
     val_params.quantize_args['max_imgs'] = 10  # load all views for testing
 
-    if val_only:
-        return build_event2img_dataset(val_params, event_dataset)
+    if val_only or kwargs.get('gen_data', False):
+        return build_event2img_dataset(val_params, ev_dst, tta=tta)
 
     return build_event2img_dataset(
-        train_params, event_dataset[0], augment=params.get('img_aug', False)), \
-        build_event2img_dataset(val_params, event_dataset[1], augment=False)
+        train_params, ev_dst[0], augment=params.get('img_aug', False)), \
+        build_event2img_dataset(val_params, ev_dst[1], augment=False)

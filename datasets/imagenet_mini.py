@@ -71,10 +71,8 @@ class NImageNetMini(NImageNet):
             s.split(' ')[0]: ' '.join(s.split(' ')[1:])
             for s in lines
         }
-        # TODO: only take a subset of 100 classes
-        folder2name = {
-            k: v for k, v in folder2name.items() if v in MINI_NAMES
-        }
+        # only take a subset of 100 classes
+        folder2name = {k: v for k, v in folder2name.items() if v in MINI_NAMES}
         assert len(folder2name) == 100 == len(MINI_NAMES)
         self.classes = list(folder2name.keys())
         self.folder2name = folder2name
@@ -106,7 +104,7 @@ class NImageNetMini(NImageNet):
             len(self.classes) == 100
 
 
-def build_n_imagenet_mini_dataset(params, val_only=False):
+def build_n_imagenet_mini_dataset(params, val_only=False, gen_data=False):
     """Build the N-ImageNet (Mini) dataset."""
     val_root = os.path.join(params.data_root, 'extracted_val')
 
@@ -116,7 +114,14 @@ def build_n_imagenet_mini_dataset(params, val_only=False):
         augmentation=False,
     )
     if val_only:
+        assert not gen_data, 'Only generate pseudo labels on the training set'
         return test_set
+    # build the training set for pseudo label generation
+    if gen_data:
+        return NImageNetMini(
+            root=os.path.join(params.data_root, 'extracted_train'),
+            augmentation=False,
+        )
 
     # build the training set
     train_set = NImageNetMini(
