@@ -28,9 +28,13 @@ LOG_DIR=checkpoint/"$(basename -- $JOB_NAME)"
 DATETIME=$(date "+%Y-%m-%d_%H:%M:%S")
 LOG_FILE=$LOG_DIR/${DATETIME}.log
 CPUS_PER_TASK=$((GPUS * CPUS_PER_GPU))
+SLRM_LOG="${LOG_DIR}/slurm.log"
 
 # set up log output folder
 mkdir -p $LOG_DIR
+
+# create new .slrm file
+slrm_file="run-${SLRM_NAME}.slrm"
 
 # python runner for DDP
 if [[ $DDP == "ddp" ]];
@@ -73,11 +77,14 @@ nvcc --version >> $LOG_FILE                          # log NVCC version
 # run python file
 $PYTHON $PY_FILE $PY_ARGS >> $LOG_FILE                # the script above, with its standard output appended log file
 
-" >> ./run-${SLRM_NAME}.slrm
+" >> ./$slrm_file
 
 # run the created file
-sbatch run-${SLRM_NAME}.slrm
+job_id=$(sbatch --parsable $slrm_file)
+echo "Submitted batch job $job_id"
 
 # delete it
-sleep 0.1
-rm -f run-${SLRM_NAME}.slrm
+sleep 0.5
+# rm -f run-${SLRM_NAME}.slrm
+# here, instead of deleting it, we run a monitor script to re-submit the job if it fails
+./scripts/resubmit_failed_job.sh $job_id $SLRM_NAME $SLRM_LOG

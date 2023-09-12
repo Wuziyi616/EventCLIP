@@ -5,8 +5,8 @@ class EventCLIPParams(BaseParams):
     project = 'EventCLIP'
 
     # training settings
-    gpus = 4
-    max_epochs = 100
+    gpus = 1
+    max_epochs = 100  # full dataset: 5
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False

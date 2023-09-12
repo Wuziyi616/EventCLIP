@@ -86,9 +86,7 @@ class Event2ImageDataset(Dataset):
         """Apply a strong data_aug and a weak data_aug to the same image."""
         data_dict = self.event_dataset[idx]
         events = data_dict.pop('events')
-
-        if self.keep_events:
-            data_dict['events'] = copy.deepcopy(events)
+        assert not self.keep_events, 'val dataset should not be semi-sup'
 
         # get [N, H, W, 3] images with dtype np.uint8
         imgs = events2frames(events, **self.quantize_args)

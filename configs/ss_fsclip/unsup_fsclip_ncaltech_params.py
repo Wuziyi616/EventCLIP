@@ -15,7 +15,7 @@ class EventCLIPParams(BaseParams):
     # optimizer settings
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
-    lr = 1e-4
+    lr = 3e-4
     warmup_steps_pct = 0.05
 
     # data settings
@@ -67,7 +67,7 @@ class EventCLIPParams(BaseParams):
         # the logic is OR, i.e. we will take at lease `topk` examples
         # but if there are many whose conf > thresh, then we take all of them
         topk=24 // gpus,  # take top-K preds
-        conf_thresh=0.6,  # take preds with conf > thresh
+        conf_thresh=1.0,  # take preds with conf > thresh
         use_ema=True,
         ema_alpha=0.999,
     )
