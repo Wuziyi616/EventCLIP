@@ -1,5 +1,6 @@
 import os
 
+from .caltech import get_real_path
 from .imagenet import NImageNet
 
 # N-ImageNet (Mini) subset, taken from https://arxiv.org/pdf/2308.09383.pdf
@@ -41,6 +42,7 @@ class NImageNetMini(NImageNet):
         num_shots=None,
         semi_shots=None,
     ):
+        root = get_real_path(root)
         self.root = root
 
         # data stats
@@ -102,6 +104,7 @@ class NImageNetMini(NImageNet):
         self.classes = [folder2name[c] for c in self.classes]
         assert all(c in self.classes for c in MINI_NAMES) and \
             len(self.classes) == 100
+        self.new_cnames = None
 
 
 def build_n_imagenet_mini_dataset(params, val_only=False, gen_data=False):

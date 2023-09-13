@@ -6,9 +6,9 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 100
+    max_epochs = 30
     save_interval = 1
-    eval_interval = 5
+    eval_interval = 2
     save_epoch_end = False
     n_samples = 10
 

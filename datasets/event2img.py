@@ -46,6 +46,7 @@ class Event2ImageDataset(Dataset):
 
         # dataset that loads raw events in shape [N, 4 (x, y, t, p)]
         self.event_dataset = event_dataset
+        self.root = event_dataset.root
         self.labeled_files = event_dataset.labeled_files  # filenames
         self.classes = event_dataset.classes
         self.resolution = event_dataset.resolution

@@ -21,6 +21,12 @@ NEW_CNAMES = {
 }
 
 
+def get_real_path(path):
+    while os.path.islink(path):
+        path = os.readlink(path)
+    return path
+
+
 class NCaltech101(Dataset):
     """Dataset class for N-Caltech101 dataset."""
 
@@ -33,6 +39,7 @@ class NCaltech101(Dataset):
         semi_shots=None,
         new_cnames=None,
     ):
+        root = get_real_path(root)
         self.root = root
         self.classes = sorted(listdir(root))
 
@@ -72,6 +79,7 @@ class NCaltech101(Dataset):
                   f'and {self.semi_shots=}\n')
 
         # change some class names
+        self.new_cnames = new_cnames
         if new_cnames is None:
             return
         for i in range(len(self.classes)):
@@ -88,7 +96,7 @@ class NCaltech101(Dataset):
         random.seed(0)
         for i, c in enumerate(self.classes):
             cls_files = [
-                join(self.root, c, f)
+                get_real_path(join(self.root, c, f))
                 for f in sorted(listdir(join(self.root, c)))
             ]
             if len(cls_files) == 0:
