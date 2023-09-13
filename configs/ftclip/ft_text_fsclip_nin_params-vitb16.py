@@ -6,7 +6,9 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 100  # full dataset: 5
+    max_epochs = 50
+    # max_epochs = 3  # following E-CLIP, only train 3 epochs on full dataset
+    # also change `save_interval=0.05`, `eval_interval = 1`
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False

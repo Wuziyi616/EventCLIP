@@ -40,6 +40,7 @@ class NImageNetMini(NImageNet):
         root,
         augmentation=False,
         num_shots=None,
+        repeat=True,
         semi_shots=None,
     ):
         root = get_real_path(root)
@@ -85,6 +86,7 @@ class NImageNetMini(NImageNet):
         self.semi_shots = semi_shots  # number of unlabeled data per class
         self.un_sup = (num_shots is not None and num_shots == 0)
         self.semi_sup = (semi_shots is not None and semi_shots > 0)
+        self.repeat = repeat
 
         self.labeled_files, self.unlabeled_files, self.labels, self.un_labels = \
             self._get_sample_idx()
@@ -131,6 +133,7 @@ def build_n_imagenet_mini_dataset(params, val_only=False, gen_data=False):
         root=os.path.join(params.data_root, 'extracted_train'),
         augmentation=True,
         num_shots=params.get('num_shots', None),
+        repeat=params.get('repeat_data', True),
         semi_shots=params.get('semi_shots', None),
     )
     return train_set, test_set

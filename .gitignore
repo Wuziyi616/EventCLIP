@@ -1,5 +1,7 @@
 vis/
 wandb/
+sbatch/
+pretrained/
 checkpoint/
 checkpoints/
 data/*/

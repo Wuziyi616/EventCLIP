@@ -32,6 +32,38 @@ def find_key_from_value(d, v):
     return None
 
 
+def print_stats(class_names, gt_class_cnt, sel_class_cnt,
+                sel_correct_class_cnt):
+    print('\nClass stats:')
+    for k in class_names:
+        gt_num, sel_num, correct_num = \
+            gt_class_cnt[k], sel_class_cnt[k], sel_correct_class_cnt[k]
+        print(f'\t{k}: GT {gt_num}, select {sel_num}, {correct_num} correct')
+    print('Not accurate classes')
+    less_accurate_cnt = 0
+    for k in class_names:
+        gt_num, sel_num, correct_num = \
+            gt_class_cnt[k], sel_class_cnt[k], sel_correct_class_cnt[k]
+        ratio = correct_num / sel_num if sel_num > 0 else 0.
+        if ratio < 0.5:
+            print(
+                f'\t{k}: GT {gt_num}, select {correct_num}/{sel_num} -- {ratio:.2f}'
+            )
+            less_accurate_cnt += 1
+    print(f'Not accurate classes: {less_accurate_cnt}/{len(class_names)}')
+
+    total_num = sum(gt_class_cnt.values())
+    select_num = sum(sel_class_cnt.values())
+    select_correct_num = sum(sel_correct_class_cnt.values())
+    sel_acc = select_correct_num / select_num * 100. if select_num > 0 else 0.
+    print(f'\nUsing {args.conf_thresh=}')
+    if args.num_shots > 0:
+        print(f'Using {args.num_shots=}')
+    print(f'\tSelect {select_num} from {total_num}, Acc={sel_acc:.2f}%')
+    if args.tta:
+        print(f'Using TTA with {args.tta_consistent=} + {args.tta_min_prob=}')
+
+
 @torch.no_grad()
 def main(params):
     # have to load CLIP model first
@@ -46,6 +78,7 @@ def main(params):
     if not is_nin:
         assert params.dataset == 'n_caltech'
     test_set = build_dataset(params, val_only=False, gen_data=True, tta=tta)
+    ev_dst = test_set.event_dataset
 
     datamodule = BaseDataModule(
         params, train_set=None, val_set=test_set, use_ddp=False)
@@ -67,14 +100,15 @@ def main(params):
 
     # test
     all_acc_meter, sel_acc_meter = AverageMeter(), AverageMeter()
-    class_names, labels = test_set.classes, test_set.event_dataset.labels
-    total_num = len(labels)
+    class_names, labels = test_set.classes, ev_dst.labels
+    # total_num = len(labels)
     gt_class_cnt = {k: (labels == i).sum() for i, k in enumerate(class_names)}
     sel_class_cnt = {k: 0 for k in class_names}
     sel_correct_class_cnt = {k: 0 for k in class_names}
     pred_path2cls = {}
 
     conf_thresh = args.conf_thresh
+    num_shots = args.num_shots
     select_num = 0
     for data_dict in tqdm(test_loader):
         data_idx = data_dict.pop('data_idx').numpy()  # [B]
@@ -113,7 +147,8 @@ def main(params):
         if tta:
             sel_mask &= tta_mask
         correct_mask = sel_mask & (pred_labels == labels)
-        sel_acc = (pred_labels[sel_mask] == labels[sel_mask]).float().mean().item()
+        sel_acc = (
+            pred_labels[sel_mask] == labels[sel_mask]).float().mean().item()
         sel_acc_meter.update(sel_acc, sel_mask.sum().item())
         select_num += sel_mask.sum().item()
         # update class cnt
@@ -123,21 +158,21 @@ def main(params):
                 if correct_mask[i].item():
                     sel_correct_class_cnt[class_names[lbl.item()]] += 1
             if sel_mask[i].item():
-                ev_path = test_set.labeled_files[data_idx[i]]
-                pred_path2cls[ev_path] = class_names[pred_labels[i].item()]
+                ev_path = str(ev_dst.labeled_files[data_idx[i]])
+                if num_shots > 0:  # also record the probs, take top-k later
+                    pred_path2cls[ev_path] = {
+                        'cls': class_names[pred_labels[i].item()],
+                        'prob': max_probs[i].item(),
+                    }
+                else:
+                    pred_path2cls[ev_path] = class_names[pred_labels[i].item()]
 
-    print('\nClass stats:')
-    for k in class_names:
-        gt_num, sel_num, correct_num = \
-            gt_class_cnt[k], sel_class_cnt[k], sel_correct_class_cnt[k]
-        print(f'\t{k}: GT {gt_num}, select {sel_num}, {correct_num} correct')
-
+    print_stats(class_names, gt_class_cnt, sel_class_cnt,
+                sel_correct_class_cnt)
     print(f'\n\nTesting {args.params}')
-    print(f'Model weight: {args.weight}')
+    if args.weight:
+        print(f'Model weight: {args.weight}')
     print(f'\tProbs-based accuracy@1: {all_acc_meter.avg * 100.:.2f}%')
-
-    print(f'\nUsing confidence threshold: {conf_thresh}')
-    print(f'\tSelected accuracy@1: {select_num}/{total_num} -- {sel_acc_meter.avg * 100.:.2f}%')
 
     if not save_path:
         return
@@ -146,19 +181,52 @@ def main(params):
         is_nin else osp.join(save_path, 'training')
     assert not osp.exists(save_path), f'{save_path} already exists!'
     os.makedirs(train_path, exist_ok=True)
+    # some classes might be renamed
+    new_cnames = ev_dst.new_cnames
+    # only take top-`num_shots` predictions for each class
+    if num_shots > 0:
+        select_num = 0
+        topk_pred_path2cls, sel_class_cnt, sel_correct_class_cnt = {}, {}, {}
+        for cls_name in class_names:
+            sel_correct_class_cnt[cls_name] = 0
+            cls_pred_paths, cls_pred_probs = [], []
+            for path, pred in pred_path2cls.items():
+                if pred['cls'] == cls_name:
+                    cls_pred_paths.append(path)
+                    cls_pred_probs.append(pred['prob'])
+            cls_pred_probs = torch.tensor(cls_pred_probs)
+            topk = min(num_shots, cls_pred_probs.shape[0])
+            _, topk_idx = cls_pred_probs.topk(topk)
+            for i in topk_idx:
+                path = cls_pred_paths[i]
+                folder_name = osp.basename(osp.dirname(path))
+                if is_nin:
+                    true_cls_name = ev_dst.folder2name[folder_name]
+                else:
+                    if new_cnames is not None:
+                        true_cls_name = new_cnames.get(folder_name,
+                                                       folder_name)
+                if true_cls_name == cls_name:
+                    sel_correct_class_cnt[cls_name] += 1
+                topk_pred_path2cls[path] = cls_name
+            sel_class_cnt[cls_name] = topk
+            select_num += topk
+        pred_path2cls = topk_pred_path2cls
+        print_stats(class_names, gt_class_cnt, sel_class_cnt,
+                    sel_correct_class_cnt)
+    # save pseudo labels
     for path, pred_cls in pred_path2cls.items():
         path = get_real_path(path)
         # path: xxx/N-Caltech101/training/airplanes/airplanes_150.npy
         #       xxx/N_Imagenet/extracted_train/n02114855/n02114855_15515.npz
         # pred_cls is a semantic class name
         # some class names might have been altered
-        if test_set.event_dataset.new_cnames is not None:
-            ori_cls = find_key_from_value(
-                test_set.event_dataset.new_cnames, pred_cls)
+        if new_cnames is not None:
+            ori_cls = find_key_from_value(new_cnames, pred_cls)
             if ori_cls is not None:
                 pred_cls = ori_cls
         if is_nin:
-            folder_name = test_set.event_dataset.name2folder[pred_cls]
+            folder_name = ev_dst.name2folder[pred_cls]
         else:
             folder_name = pred_cls
         ev_name = osp.basename(path)
@@ -170,14 +238,14 @@ def main(params):
     # also soft-link val/test set if they exist
     if is_nin:
         val_path = osp.join(save_path, 'extracted_val')
-        ori_val_path = osp.join(osp.dirname(test_set.root), 'extracted_val')
+        ori_val_path = osp.join(osp.dirname(ev_dst.root), 'extracted_val')
         ori_val_path = get_real_path(ori_val_path)
         os.symlink(ori_val_path, val_path)
     else:
         val_path = osp.join(save_path, 'validation')
         test_path = osp.join(save_path, 'testing')
-        ori_val_path = osp.join(osp.dirname(test_set.root), 'validation')
-        ori_test_path = osp.join(osp.dirname(test_set.root), 'testing')
+        ori_val_path = osp.join(osp.dirname(ev_dst.root), 'validation')
+        ori_test_path = osp.join(osp.dirname(ev_dst.root), 'testing')
         ori_val_path = get_real_path(ori_val_path)
         ori_test_path = get_real_path(ori_test_path)
         os.symlink(ori_val_path, val_path)
@@ -186,12 +254,12 @@ def main(params):
     # some classes don't have any pseudo labels
     # we still create the folder for consistency
     for k in class_names:
-        if test_set.event_dataset.new_cnames is not None:
-            ori_cls = find_key_from_value(test_set.event_dataset.new_cnames, k)
+        if new_cnames is not None:
+            ori_cls = find_key_from_value(new_cnames, k)
             if ori_cls is not None:
                 k = ori_cls
         if is_nin:
-            folder_name = test_set.event_dataset.name2folder[k]
+            folder_name = ev_dst.name2folder[k]
         else:
             folder_name = k
         folder_path = osp.join(train_path, folder_name)
@@ -209,6 +277,7 @@ if __name__ == "__main__":
     parser.add_argument('--tta_min_prob', action='store_true')
     parser.add_argument('--prompt', type=str, default='')
     parser.add_argument('--bs', type=int, default=-1)
+    parser.add_argument('--num_shots', type=int, default=-1)
     args = parser.parse_args()
 
     if args.params.endswith('.py'):
