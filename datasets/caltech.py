@@ -7,6 +7,8 @@ import numpy as np
 
 from torch.utils.data import Dataset
 
+from nerv.utils import load_obj, dump_obj
+
 from .utils import random_time_flip_events, random_shift_events, \
     random_flip_events_along_x, center_events
 
@@ -38,9 +40,12 @@ class NCaltech101(Dataset):
         repeat=True,
         new_cnames=None,
     ):
-        root = get_real_path(root)
         self.root = root
         self.classes = sorted(listdir(root))
+        # TODO: a hack for identifying generated pseudo labeled datasets
+        self.is_pseudo = 'pseudo' in root
+        if self.is_pseudo:
+            print('Using pseudo labeled dataset!')
 
         # data stats (computed from the test set)
         self.resolution = (180, 240)
@@ -58,6 +63,9 @@ class NCaltech101(Dataset):
 
         # few-shot cls
         self.num_shots = num_shots  # number of labeled data per class
+        self.few_shot = (num_shots is not None and num_shots > 0)
+        if self.few_shot:
+            assert 'train' in root.lower(), 'Only sample data in training set'
         self.repeat = repeat
 
         self.labeled_files, self.labels = self._get_sample_idx()
@@ -75,6 +83,19 @@ class NCaltech101(Dataset):
 
     def _get_sample_idx(self):
         """Load event file_name and label pairs."""
+        # load pre-generated splits if available
+        if self.few_shot and not self.is_pseudo:
+            cur_dir = os.path.dirname(os.path.realpath(__file__))
+            split_fn = os.path.join(
+                cur_dir, 'files', self.__class__.__name__,
+                f'{self.num_shots}shot-repeat={self.repeat}.pkl')
+            if os.path.exists(split_fn):
+                print(f'Loading pre-generated split from {split_fn}')
+                splits = load_obj(split_fn)  # Dict[event_fn: label]
+                labeled_files = np.array(list(splits.keys()))
+                labels = np.array(list(splits.values()))
+                return labeled_files, labels
+
         labeled_files, labels = [], []
 
         # fix the random seed since we'll sample data
@@ -89,7 +110,7 @@ class NCaltech101(Dataset):
                 continue
 
             # randomly sample `num_shots` labeled data for each class
-            if self.num_shots is not None and self.num_shots > 0:
+            if self.few_shot:
                 if self.num_shots <= len(cls_files):
                     lbl_files = random.sample(cls_files, k=self.num_shots)
                 else:
@@ -103,6 +124,13 @@ class NCaltech101(Dataset):
                 raise ValueError(f'Invalid num_shots: {self.num_shots}')
             labeled_files += lbl_files
             labels += [i] * len(lbl_files)
+
+        # save the splits for future use
+        if self.few_shot and not self.is_pseudo:
+            splits = {fn: lbl for fn, lbl in zip(labeled_files, labels)}
+            os.makedirs(os.path.dirname(split_fn), exist_ok=True)
+            dump_obj(splits, split_fn)
+            print(f'Saving split file to {split_fn}')
 
         labeled_files = np.array(labeled_files)
         labels = np.array(labels)
