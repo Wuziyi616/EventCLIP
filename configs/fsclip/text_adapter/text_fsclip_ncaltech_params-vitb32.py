@@ -20,7 +20,7 @@ class EventCLIPParams(BaseParams):
 
     # data settings
     dataset = 'n_caltech'
-    data_root = './data/N-Caltech101/'
+    data_root = './data/pseudo-N-Caltech101/'
     num_shots = None
     repeat_data = True
     img_aug = True

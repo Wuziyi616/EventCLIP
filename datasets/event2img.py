@@ -56,7 +56,6 @@ class Event2ImageDataset(Dataset):
                 'Do not augment events in pseudo label generation'
             assert not augment, 'Do not augment twice'
             assert event_dataset.num_shots is None
-            assert event_dataset.semi_shots is None
             print('Apply h- and t-flip TTA in pseudo label generation')
 
         # arguments for mapping events to 2D images
@@ -72,9 +71,6 @@ class Event2ImageDataset(Dataset):
 
         # a hack in visualization to also load the raw events data
         self.keep_events = False
-
-        # semi-supervised learning
-        self.semi_sup = event_dataset.semi_sup
 
     def __len__(self):
         return len(self.event_dataset)
@@ -93,38 +89,13 @@ class Event2ImageDataset(Dataset):
             imgs = torch.cat([imgs, pad], dim=0)
         return imgs, valid_mask
 
-    def _load_semi_sup_data(self, idx):
-        """Apply a strong data_aug and a weak data_aug to the same image."""
-        data_dict = self.event_dataset[idx]
-        events = data_dict.pop('events')
-        assert not self.keep_events, 'val dataset should not be semi-sup'
-
-        # get [N, H, W, 3] images with dtype np.uint8
-        imgs = events2frames(events, **self.quantize_args)
-        imgs = [Image.fromarray(img) for img in imgs]
-        weak_imgs = torch.stack([self.transforms(img) for img in imgs]).clone()
-        if self.augment:
-            imgs = self.augmentation(imgs)
-        strong_imgs = torch.stack([self.transforms(img) for img in imgs])
-        # to [N, 3, H, W] torch.Tensor as model inputs
-
-        # randomly select a subset of images or pad with zeros
-        weak_imgs, valid_mask = self._subsample_imgs(weak_imgs)
-        strong_imgs, valid_mask_ = self._subsample_imgs(strong_imgs)
-        assert (valid_mask == valid_mask_).all()
-
-        data_dict['weak_img'] = weak_imgs
-        data_dict['strong_img'] = strong_imgs
-        data_dict['valid_mask'] = valid_mask
-
-        return data_dict
-
     def _load_tta_data(self, idx):
         """Apply h- and t-flip to the loaded events, then convert to images."""
         data_dict = self.event_dataset[idx]
         events = data_dict.pop('events')
         assert not self.keep_events, 'val dataset should not be TTA'
-        h_events = hflip_events(copy.deepcopy(events), resolution=self.resolution, p=1.)
+        h_events = hflip_events(
+            copy.deepcopy(events), resolution=self.resolution, p=1.)
         t_events = tflip_events(copy.deepcopy(events), p=1.)
         h_t_events = tflip_events(copy.deepcopy(h_events), p=1.)
         tta_events = [events, h_events, t_events, h_t_events]
@@ -140,6 +111,7 @@ class Event2ImageDataset(Dataset):
 
     def _event2img(self, events):
         """Convert events to 2D images."""
+        # events: [N, 4 (x, y, t, p)]
         # get [N, H, W, 3] images with dtype np.uint8
         imgs = events2frames(events, **self.quantize_args)
         imgs = [Image.fromarray(img) for img in imgs]
@@ -154,9 +126,6 @@ class Event2ImageDataset(Dataset):
         return imgs, valid_mask
 
     def __getitem__(self, idx):
-        if self.semi_sup:
-            return self._load_semi_sup_data(idx)
-
         if self.tta:
             return self._load_tta_data(idx)
 

@@ -36,7 +36,6 @@ class NCaltech101(Dataset):
         augmentation=False,
         num_shots=None,
         repeat=True,
-        semi_shots=None,
         new_cnames=None,
     ):
         root = get_real_path(root)
@@ -59,24 +58,10 @@ class NCaltech101(Dataset):
 
         # few-shot cls
         self.num_shots = num_shots  # number of labeled data per class
-        self.semi_shots = semi_shots  # number of unlabeled data per class
-        self.un_sup = (num_shots is not None and num_shots == 0)
-        self.semi_sup = (semi_shots is not None and semi_shots > 0)
         self.repeat = repeat
 
-        self.labeled_files, self.unlabeled_files, self.labels, self.un_labels = \
-            self._get_sample_idx()
+        self.labeled_files, self.labels = self._get_sample_idx()
         assert len(self.labeled_files) == len(self.labels)
-        assert len(self.unlabeled_files) == len(self.un_labels)
-        if self.un_sup:
-            assert len(self.labeled_files) == 0
-            assert len(self.unlabeled_files) > 0
-            print(f'\nUnsupervised learning with {self.semi_shots=}\n')
-        if self.semi_sup:
-            # assert len(self.labeled_files) > 0
-            assert len(self.unlabeled_files) > 0
-            print(f'\nSemi-supervised learning with {self.num_shots=} '
-                  f'and {self.semi_shots=}\n')
 
         # change some class names
         self.new_cnames = new_cnames
@@ -90,7 +75,7 @@ class NCaltech101(Dataset):
 
     def _get_sample_idx(self):
         """Load event file_name and label pairs."""
-        labeled_files, unlabeled_files, labels, un_labels = [], [], [], []
+        labeled_files, labels = [], []
 
         # fix the random seed since we'll sample data
         random.seed(0)
@@ -115,34 +100,16 @@ class NCaltech101(Dataset):
             elif self.num_shots is None:
                 lbl_files = cls_files
             else:
-                assert self.un_sup
-                lbl_files = []
+                raise ValueError(f'Invalid num_shots: {self.num_shots}')
             labeled_files += lbl_files
             labels += [i] * len(lbl_files)
 
-            # randomly sample `semi_shots` unlabeled data for each class
-            if not self.semi_sup:
-                continue
-            cls_files = sorted(list(set(cls_files) - set(lbl_files)))
-            if len(cls_files) == 0:
-                continue
-            if self.semi_shots <= len(cls_files):
-                unlbl_files = random.sample(cls_files, k=self.semi_shots)
-            else:  # don't repeat data
-                unlbl_files = cls_files
-            # no overlap
-            assert len(set(lbl_files) & set(unlbl_files)) == 0
-            unlabeled_files += unlbl_files
-            un_labels += [i] * len(unlbl_files)
-
         labeled_files = np.array(labeled_files)
-        unlabeled_files = np.array(unlabeled_files)
         labels = np.array(labels)
-        un_labels = np.array(un_labels)
-        return labeled_files, unlabeled_files, labels, un_labels
+        return labeled_files, labels
 
     def __len__(self):
-        return len(self.labeled_files) + len(self.unlabeled_files)
+        return len(self.labeled_files)
 
     def _rand_another(self):
         """Randomly sample another data."""
@@ -170,12 +137,8 @@ class NCaltech101(Dataset):
         :param idx: data_idx
         :return: [N, (x,y,t,p)], label, data_idx
         """
-        if idx < len(self.labeled_files):
-            f = str(self.labeled_files[idx])
-            label = int(self.labels[idx])
-        else:
-            f = str(self.unlabeled_files[idx - len(self.labeled_files)])
-            label = -1 * int(self.un_labels[idx - len(self.labeled_files)]) - 1
+        f = str(self.labeled_files[idx])
+        label = int(self.labels[idx])
         events = self._load_events(f)
         # the spatial resolution of N-Caltech events is 180x240
         # we should center the spatial coordinates of events
@@ -223,7 +186,6 @@ def build_n_caltech_dataset(params, val_only=False, gen_data=False):
         augmentation=True,
         num_shots=params.get('num_shots', None),
         repeat=params.get('repeat_data', True),
-        semi_shots=params.get('semi_shots', None),
         new_cnames=NEW_CNAMES,
     )
     val_set = NCaltech101(

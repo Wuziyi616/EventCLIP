@@ -16,7 +16,6 @@ class NCars(NCaltech101):
         root,
         augmentation=False,
         num_shots=None,
-        semi_shots=None,
         new_cnames=None,
     ):
         super().__init__(
@@ -24,7 +23,6 @@ class NCars(NCaltech101):
             augmentation=augmentation,
             num_shots=num_shots,
             repeat=False,
-            semi_shots=semi_shots,
             new_cnames=new_cnames,
         )
 
@@ -53,7 +51,6 @@ def build_n_cars_dataset(params, val_only=False):
         root=os.path.join(params.data_root, 'train'),
         augmentation=True,
         num_shots=params.get('num_shots', None),
-        semi_shots=params.get('semi_shots', None),
         new_cnames=NEW_CNAMES,
     )
     return train_set, test_set

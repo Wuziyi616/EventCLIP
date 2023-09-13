@@ -6,7 +6,7 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 50
+    max_epochs = 100
     save_interval = 1
     eval_interval = 2
     save_epoch_end = False
@@ -20,8 +20,8 @@ class EventCLIPParams(BaseParams):
 
     # data settings
     dataset = 'n_imagenet_mini'
-    data_root = './data/N_Imagenet/'
-    num_shots = None
+    data_root = './data/pseudo-N_Imagenet/'
+    num_shots = None  # set this to train with highest confident pseudo labels
     repeat_data = True
     img_aug = True
     train_batch_size = 128 // gpus

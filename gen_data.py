@@ -46,9 +46,7 @@ def print_stats(class_names, gt_class_cnt, sel_class_cnt,
             gt_class_cnt[k], sel_class_cnt[k], sel_correct_class_cnt[k]
         ratio = correct_num / sel_num if sel_num > 0 else 0.
         if ratio < 0.5:
-            print(
-                f'\t{k}: GT {gt_num}, select {correct_num}/{sel_num} -- {ratio:.2f}'
-            )
+            print(f'\t{k}: GT {gt_num}, select {correct_num}/{sel_num} -- {ratio:.2f}')
             less_accurate_cnt += 1
     print(f'Not accurate classes: {less_accurate_cnt}/{len(class_names)}')
 
@@ -99,7 +97,7 @@ def main(params):
     model = model.cuda().eval()
 
     # test
-    all_acc_meter, sel_acc_meter = AverageMeter(), AverageMeter()
+    all_acc_meter = AverageMeter()
     class_names, labels = test_set.classes, ev_dst.labels
     # total_num = len(labels)
     gt_class_cnt = {k: (labels == i).sum() for i, k in enumerate(class_names)}
@@ -109,7 +107,6 @@ def main(params):
 
     conf_thresh = args.conf_thresh
     num_shots = args.num_shots
-    select_num = 0
     for data_dict in tqdm(test_loader):
         data_idx = data_dict.pop('data_idx').numpy()  # [B]
         data_dict = {k: v.cuda() for k, v in data_dict.items()}
@@ -146,26 +143,22 @@ def main(params):
         sel_mask = (max_probs > conf_thresh)
         if tta:
             sel_mask &= tta_mask
-        correct_mask = sel_mask & (pred_labels == labels)
-        sel_acc = (
-            pred_labels[sel_mask] == labels[sel_mask]).float().mean().item()
-        sel_acc_meter.update(sel_acc, sel_mask.sum().item())
-        select_num += sel_mask.sum().item()
         # update class cnt
-        for i, lbl in enumerate(labels):
+        for i, lbl, pred_lbl in enumerate(zip(labels, pred_labels)):
+            pred_cls_name = class_names[pred_lbl.item()]
             if sel_mask[i].item():
-                sel_class_cnt[class_names[lbl.item()]] += 1
-                if correct_mask[i].item():
-                    sel_correct_class_cnt[class_names[lbl.item()]] += 1
+                sel_class_cnt[pred_cls_name] += 1
+                if pred_lbl.item() == lbl.item():
+                    sel_correct_class_cnt[pred_cls_name] += 1
             if sel_mask[i].item():
                 ev_path = str(ev_dst.labeled_files[data_idx[i]])
                 if num_shots > 0:  # also record the probs, take top-k later
                     pred_path2cls[ev_path] = {
-                        'cls': class_names[pred_labels[i].item()],
+                        'cls': pred_cls_name,
                         'prob': max_probs[i].item(),
                     }
                 else:
-                    pred_path2cls[ev_path] = class_names[pred_labels[i].item()]
+                    pred_path2cls[ev_path] = pred_cls_name
 
     print_stats(class_names, gt_class_cnt, sel_class_cnt,
                 sel_correct_class_cnt)
@@ -185,11 +178,11 @@ def main(params):
     new_cnames = ev_dst.new_cnames
     # only take top-`num_shots` predictions for each class
     if num_shots > 0:
-        select_num = 0
         topk_pred_path2cls, sel_class_cnt, sel_correct_class_cnt = {}, {}, {}
         for cls_name in class_names:
             sel_correct_class_cnt[cls_name] = 0
             cls_pred_paths, cls_pred_probs = [], []
+            # find data that are classified as this class
             for path, pred in pred_path2cls.items():
                 if pred['cls'] == cls_name:
                     cls_pred_paths.append(path)
@@ -198,19 +191,16 @@ def main(params):
             topk = min(num_shots, cls_pred_probs.shape[0])
             _, topk_idx = cls_pred_probs.topk(topk)
             for i in topk_idx:
-                path = cls_pred_paths[i]
-                folder_name = osp.basename(osp.dirname(path))
+                path = cls_pred_paths[i]  # get the GT label from path
+                gt_cls_name = osp.basename(osp.dirname(path))
                 if is_nin:
-                    true_cls_name = ev_dst.folder2name[folder_name]
-                else:
-                    if new_cnames is not None:
-                        true_cls_name = new_cnames.get(folder_name,
-                                                       folder_name)
-                if true_cls_name == cls_name:
+                    gt_cls_name = ev_dst.folder2name[gt_cls_name]
+                if new_cnames is not None:
+                    gt_cls_name = new_cnames.get(gt_cls_name, gt_cls_name)
+                if gt_cls_name == cls_name:
                     sel_correct_class_cnt[cls_name] += 1
                 topk_pred_path2cls[path] = cls_name
             sel_class_cnt[cls_name] = topk
-            select_num += topk
         pred_path2cls = topk_pred_path2cls
         print_stats(class_names, gt_class_cnt, sel_class_cnt,
                     sel_correct_class_cnt)

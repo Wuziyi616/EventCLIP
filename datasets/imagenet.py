@@ -35,14 +35,12 @@ class NImageNet(NCaltech101):
         root,
         augmentation=False,
         num_shots=None,
-        semi_shots=None,
     ):
         super().__init__(
             root=root,
             augmentation=augmentation,
             num_shots=num_shots,
             repeat=False,
-            semi_shots=semi_shots,
             new_cnames=None,
         )
 
@@ -115,6 +113,5 @@ def build_n_imagenet_dataset(params, val_only=False, subset=-1):
         root=os.path.join(params.data_root, 'extracted_train'),
         augmentation=True,
         num_shots=params.get('num_shots', None),
-        semi_shots=params.get('semi_shots', None),
     )
     return train_set, test_set

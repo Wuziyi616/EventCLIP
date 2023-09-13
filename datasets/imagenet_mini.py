@@ -41,7 +41,6 @@ class NImageNetMini(NImageNet):
         augmentation=False,
         num_shots=None,
         repeat=True,
-        semi_shots=None,
     ):
         root = get_real_path(root)
         self.root = root
@@ -83,24 +82,10 @@ class NImageNetMini(NImageNet):
 
         # few-shot cls
         self.num_shots = num_shots  # number of labeled data per class
-        self.semi_shots = semi_shots  # number of unlabeled data per class
-        self.un_sup = (num_shots is not None and num_shots == 0)
-        self.semi_sup = (semi_shots is not None and semi_shots > 0)
         self.repeat = repeat
 
-        self.labeled_files, self.unlabeled_files, self.labels, self.un_labels = \
-            self._get_sample_idx()
+        self.labeled_files, self.labels = self._get_sample_idx()
         assert len(self.labeled_files) == len(self.labels)
-        assert len(self.unlabeled_files) == len(self.un_labels)
-        if self.un_sup:
-            assert len(self.labeled_files) == 0
-            assert len(self.unlabeled_files) > 0
-            print(f'\nUnsupervised learning with {self.semi_shots=}\n')
-        if self.semi_sup:
-            # assert len(self.labeled_files) > 0
-            assert len(self.unlabeled_files) > 0
-            print(f'\nSemi-supervised learning with {self.num_shots=} '
-                  f'and {self.semi_shots=}\n')
 
         # finally, get semantically meaningful class names
         self.classes = [folder2name[c] for c in self.classes]
@@ -134,6 +119,5 @@ def build_n_imagenet_mini_dataset(params, val_only=False, gen_data=False):
         augmentation=True,
         num_shots=params.get('num_shots', None),
         repeat=params.get('repeat_data', True),
-        semi_shots=params.get('semi_shots', None),
     )
     return train_set, test_set

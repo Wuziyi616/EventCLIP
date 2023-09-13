@@ -6,23 +6,23 @@ class EventCLIPParams(BaseParams):
 
     # training settings
     gpus = 1
-    max_epochs = 20
-    save_interval = 0.5
+    max_epochs = 100
+    save_interval = 1
     eval_interval = 2
     save_epoch_end = False
-    n_samples = 5
+    n_samples = 10
 
     # optimizer settings
     # Adam optimizer, Cosine decay with Warmup
     optimizer = 'Adam'
-    lr = 3e-4
+    lr = 2e-5
     warmup_steps_pct = 0.05
 
     # data settings
     dataset = 'n_imagenet_mini'
-    data_root = './data/N_Imagenet/'
-    num_shots = 0
-    semi_shots = 100000  # will load the entire dataset as unlabeled data
+    data_root = './data/pseudo-N_Imagenet/'
+    num_shots = None  # set this to train with highest confident pseudo labels
+    repeat_data = True
     img_aug = True
     train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
@@ -40,11 +40,11 @@ class EventCLIPParams(BaseParams):
     )
 
     # model configs
-    model = 'SS-FSCLIP'
+    model = 'FSCLIP'
     clip_dict = dict(
         # 'RN50', 'RN101', 'RN50x4', 'RN50x16', 'RN50x64', 'ViT-B/32'
         # 'ViT-B/16', 'ViT-L/14', 'ViT-L/14@336px'
-        arch='ViT-B/32',  # to compare with Ev-LaFOR
+        arch='ViT-B/32',
         prompt='a sketch image of a {}',
         agg_func='mean',  # aggregate the logits over views
     )
@@ -52,7 +52,7 @@ class EventCLIPParams(BaseParams):
     # adapter configs
     d_model = 256
     adapter_dict = dict(
-        adapter_type='text-identity',
+        adapter_type='text-trans',
         in_dim=512,
         d_model=d_model,
         num_heads=d_model // 64,
@@ -60,16 +60,6 @@ class EventCLIPParams(BaseParams):
         norm_first=True,
         num_layers=2,
         residual=0.95,
-    )
-
-    # semi-supervised config
-    ss_dict = dict(
-        # the logic is OR, i.e. we will take at lease `topk` examples
-        # but if there are many whose conf > thresh, then we take all of them
-        topk=64 // gpus,  # take top-K preds
-        conf_thresh=1.0,  # take preds with conf > thresh
-        use_ema=True,
-        ema_alpha=0.999,
     )
 
     # loss configs
