@@ -31,6 +31,7 @@ The overall pipeline is shown below:
 
 -   2023.5.17: Initial code release!
 -   2023.7.17: Release fine-tuning code
+-   2023.9.14: Release code for learning with unlabeled data
 
 ## Installation
 

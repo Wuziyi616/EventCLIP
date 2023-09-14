@@ -35,7 +35,7 @@ class NCars(NCaltech101):
         self.max_shift = 10  # resolution is ~half as N-Caltech101
 
 
-def build_n_cars_dataset(params, val_only=False):
+def build_n_cars_dataset(params, val_only=False, gen_data=False):
     """Build the N-Cars dataset."""
     # only build the test set
     test_set = NCars(
@@ -44,7 +44,15 @@ def build_n_cars_dataset(params, val_only=False):
         new_cnames=NEW_CNAMES,
     )
     if val_only:
+        assert not gen_data
         return test_set
+    # build the training set for pseudo label generation
+    if gen_data:
+        return NCars(
+            root=os.path.join(params.data_root, 'train'),
+            augmentation=False,
+            new_cnames=NEW_CNAMES,
+        )
 
     # build the training set
     train_set = NCars(

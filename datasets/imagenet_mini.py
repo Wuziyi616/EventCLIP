@@ -44,6 +44,10 @@ class NImageNetMini(NImageNet):
     ):
         root = get_real_path(root)
         self.root = root
+        # TODO: a hack for identifying generated pseudo labeled datasets
+        self.is_pseudo = 'pseudo' in root
+        if self.is_pseudo:
+            print('Using pseudo labeled dataset!')
 
         # data stats
         self.resolution = (480, 640)
@@ -99,11 +103,9 @@ class NImageNetMini(NImageNet):
 
 def build_n_imagenet_mini_dataset(params, val_only=False, gen_data=False):
     """Build the N-ImageNet (Mini) dataset."""
-    val_root = os.path.join(params.data_root, 'extracted_val')
-
     # only build the test set
     test_set = NImageNetMini(
-        root=val_root,
+        root=os.path.join(params.data_root, 'extracted_val'),
         augmentation=False,
     )
     if val_only:

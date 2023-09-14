@@ -79,7 +79,12 @@ class NImageNet(NCaltech101):
         return load_event(event_path).astype(np.float32)
 
 
-def build_n_imagenet_dataset(params, val_only=False, subset=-1):
+def build_n_imagenet_dataset(
+    params,
+    val_only=False,
+    gen_data=False,
+    subset=-1,
+):
     """Build the N-ImageNet dataset."""
     val_names = {
         1: 'val_mode_1',
@@ -106,7 +111,14 @@ def build_n_imagenet_dataset(params, val_only=False, subset=-1):
         augmentation=False,
     )
     if val_only:
+        assert not gen_data
         return test_set
+    # build the training set for pseudo label generation
+    if gen_data:
+        return NImageNet(
+            root=os.path.join(params.data_root, 'extracted_train'),
+            augmentation=False,
+        )
 
     # build the training set
     train_set = NImageNet(

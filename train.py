@@ -131,7 +131,12 @@ if __name__ == "__main__":
             params.train_batch_size = min(
                 params.num_shots * 2,  # 2 classes
                 params.train_batch_size)
-            print(f'Set batch size to {params.train_batch_size}')
+            print(f'Set {params.train_batch_size=} for N-Cars')
+        if params.dataset == 'n_imagenet_mini':
+            params.train_batch_size = min(
+                params.num_shots * 100,  # 100 classes
+                params.train_batch_size)
+            print(f'Set {params.train_batch_size=} for N-ImageNet (Mini)')
 
     if args.fp16:
         print('INFO: using FP16 training!')

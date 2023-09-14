@@ -55,7 +55,9 @@ class Event2ImageDataset(Dataset):
             assert not event_dataset.augmentation, \
                 'Do not augment events in pseudo label generation'
             assert not augment, 'Do not augment twice'
-            assert event_dataset.num_shots is None
+            assert event_dataset.num_shots is None, 'Should sample all data'
+            assert 'train' in event_dataset.root, \
+                'Generate pseudo labels only on training set'
             print('Apply h- and t-flip TTA in pseudo label generation')
 
         # arguments for mapping events to 2D images

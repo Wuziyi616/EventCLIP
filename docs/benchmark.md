@@ -9,7 +9,7 @@ We provide instructions on reproducing the results reported in the paper, includ
 
 In the following instructions, we will use **EventCLIP with joint adapter on N-Caltech dataset under 5-shot setting** as the example.
 
-## Training
+## Training EventCLIP Feature Adapter
 
 **We provide a unified script [train.py](../train.py) to train all models used in this project.**
 You should always call it in the **root directory** of this repo (i.e. calling `python train.py xxx`).
@@ -47,7 +47,11 @@ To test the above trained model, simply run:
 python test.py --params configs/fsclip/joint_adapter/joint_fsclip_ncaltech_params.py --weight $WEIGHT
 ```
 
-Other arguments include:
+Or you can use these configs to test the zero-shot classification performance:
+
+-   [Zero-shot configs](../configs/zsclip/)
+
+Other arguments in `test.py` include:
 
 -   `--bs`: testing batch size
 -   `--subset`: used to specify the N-ImageNet robustness variants to test. See their paper Appendix for a conversion between subset ID and the actual data variation
@@ -55,7 +59,7 @@ Other arguments include:
 -   `--prompt`: change the text prompt in zero-shot testing
 
 We also provide a `--train_shots` argument.
-If you train multiple models with different `--num_shots` values in `train.py`, you can put all numbers of shots here to test them all together.
+If you train the same model with different `--num_shots` values in `train.py`, you can put all numbers of shots here to test them all together.
 For example, you can run:
 
 ```
@@ -64,7 +68,32 @@ python test.py --params configs/fsclip/joint_adapter/joint_fsclip_ncaltech_param
 
 **Note that testing is always conducted over the entire test set without few-shot filtering.**
 
-## Scripts
+## Fine-tuning EventCLIP Full Model
+
+Fine-tuning EventCLIP is similar to training an adapter model.
+But they require more GPU memory and training time.
+We provide config files for fine-tuning EventCLIP under the few-shot and full data setting.
+Please refer to them for detailed training requirement:
+
+-   [Fine-tuning configs](../configs/ftclip/)
+
+## Learning with Unlabeled Data
+
+To generate pseudo labels on unlabeled data, please use [gen_data.py](../gen_data.py).
+For example, you can use the zero-shot EventCLIP to generate pseudo labels on the N-ImageNet (Mini) dataset by:
+
+```
+python gen_data.py --params configs/zsclip/zsclip_nin_mini_params-vitb32.py --conf_thresh 0.999 --tta --tta_min_prob --tta_consistent --save_path data/pseudo-N_Imagenet/vitb32_zs-tta-min_prob-consistent-thresh_0999-30shot --num_shots 30
+```
+
+Here, we use a confidence threshold of `0.999` to filter predictions.
+`--tta`, `--tta_min_prob`, and `--tta_consistent` are the techniques introduced in the paper to further improve the label quality.
+`--num_shots 30` means we only select the top-30 most confident predictions for each class.
+`--save_path` indicates the path to save the generated dataset.
+
+If you want to train on this generated dataset, please use the [adapter config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py), and modify the `data_root` field to the `save_path` above.
+
+## Useful Scripts
 
 We provide helper scripts for Slurm cluster job submission, and train/test over multiple settings.
 
@@ -85,6 +114,8 @@ Again using the same example, we can set `--py_args...` as (see the config file 
 ```
 
 Then this will be equivalent to running the above `python train.py xxx` command in CLI.
+
+Note that `sbatch_run.sh` calls a `resubmit_failed_job.sh` script inside, which will monitor the job status and resubmit the job if it fails.
 
 -   We provide a script to **submit multiple runs of the same experiment with different random seeds** to slurm.
 
@@ -118,7 +149,8 @@ The model weights will be saved under `./checkpoint/joint_fsclip_ncaltech_params
 ./scripts/train_all_shots.sh "GPUS=1 CPUS_PER_GPU=8 MEM_PER_CPU=5 QOS=normal REPEAT=3 ./scripts/dup_run_sbatch.sh rtx6000 joint_fsclip_ncaltech_params train.py none configs/fsclip/joint_adapter/joint_fsclip_ncaltech_params.py --fp16 --cudnn" 20 10 5 3 1
 ```
 
-The model weights will be saved under `./checkpoint/joint_fsclip_ncaltech_params-dup$X-$Yshot/`
+The model weights will be saved under `./checkpoint/joint_fsclip_ncaltech_params-dup$X-$Yshot/`.
+See the `Testing` section above on how to efficiently test all these models with the `--train_shots` flag.
 
 -   In zero-shot testing, we provide script to test EventCLIP with different ViT's image encoder architectures [test_all_arch.sh](../scripts/test_all_arch.sh).
     Simply wrap your testing command with this script, and add the arches you want to try

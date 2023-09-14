@@ -74,7 +74,8 @@ def main(params):
     tta = args.tta
     is_nin = ('n_imagenet' in params.dataset)
     if not is_nin:
-        assert params.dataset == 'n_caltech'
+        assert params.dataset == 'n_caltech', f'{params.dataset} not supported'
+    print(f'Generate pseudo labels for {params.dataset}')
     test_set = build_dataset(params, val_only=False, gen_data=True, tta=tta)
     ev_dst = test_set.event_dataset
 
@@ -265,8 +266,6 @@ if __name__ == "__main__":
     parser.add_argument('--tta', action='store_true')
     parser.add_argument('--tta_consistent', action='store_true')
     parser.add_argument('--tta_min_prob', action='store_true')
-    parser.add_argument('--prompt', type=str, default='')
-    parser.add_argument('--bs', type=int, default=-1)
     parser.add_argument('--num_shots', type=int, default=-1)
     args = parser.parse_args()
 
@@ -278,11 +277,6 @@ if __name__ == "__main__":
 
     # adjust params
     is_zs = (params.model == 'ZSCLIP')
-    if args.prompt:
-        params.clip_dict['prompt'] = args.prompt
-        assert is_zs, 'can only change text prompt in zero-shot testing'
-    if args.bs > 0:
-        params.val_batch_size = args.bs
     save_path = args.save_path
     if save_path:
         assert not osp.exists(save_path), f'{save_path} already exists!'
