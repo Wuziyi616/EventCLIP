@@ -40,6 +40,7 @@ class NCaltech101(Dataset):
         repeat=True,
         new_cnames=None,
     ):
+        root = get_real_path(root)
         self.root = root
         self.classes = sorted(listdir(root))
         # TODO: a hack for identifying generated pseudo labeled datasets

@@ -144,7 +144,7 @@ def main(params):
         if tta:
             sel_mask &= tta_mask
         # update class cnt
-        for i, lbl, pred_lbl in enumerate(zip(labels, pred_labels)):
+        for i, (lbl, pred_lbl) in enumerate(zip(labels, pred_labels)):
             pred_cls_name = class_names[pred_lbl.item()]
             if sel_mask[i].item():
                 sel_class_cnt[pred_cls_name] += 1

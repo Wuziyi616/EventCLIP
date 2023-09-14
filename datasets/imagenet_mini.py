@@ -82,6 +82,9 @@ class NImageNetMini(NImageNet):
 
         # few-shot cls
         self.num_shots = num_shots  # number of labeled data per class
+        self.few_shot = (num_shots is not None and num_shots > 0)
+        if self.few_shot:
+            assert 'train' in root.lower(), 'Only sample data in training set'
         self.repeat = repeat
 
         self.labeled_files, self.labels = self._get_sample_idx()
