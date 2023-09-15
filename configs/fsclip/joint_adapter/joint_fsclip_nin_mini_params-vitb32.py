@@ -10,7 +10,7 @@ class EventCLIPParams(BaseParams):
     save_interval = 1
     eval_interval = 5
     save_epoch_end = False
-    n_samples = 10
+    n_samples = 5
 
     # optimizer settings
     # Adam optimizer, Cosine decay with Warmup
@@ -24,9 +24,9 @@ class EventCLIPParams(BaseParams):
     num_shots = None  # set this to train with highest confident pseudo labels
     repeat_data = True
     img_aug = True
-    train_batch_size = 128 // gpus
+    train_batch_size = 32 // gpus
     val_batch_size = train_batch_size * 2
-    num_workers = 16
+    num_workers = 8
 
     # event2img conversion
     quantize_args = dict(

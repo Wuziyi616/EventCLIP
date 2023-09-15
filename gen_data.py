@@ -13,7 +13,7 @@ import torch
 import clip
 
 from nerv.training import BaseDataModule
-from nerv.utils import AverageMeter
+from nerv.utils import AverageMeter, load_obj
 
 from models import build_model
 from datasets import build_dataset
@@ -23,6 +23,10 @@ def get_real_path(path):
     while osp.islink(path):
         path = os.readlink(path)
     return path
+
+
+def get_folder_and_fn(path):
+    return osp.join(osp.basename(osp.dirname(path)), osp.basename(path))
 
 
 def find_key_from_value(d, v):
@@ -55,8 +59,8 @@ def print_stats(class_names, gt_class_cnt, sel_class_cnt,
     select_correct_num = sum(sel_correct_class_cnt.values())
     sel_acc = select_correct_num / select_num * 100. if select_num > 0 else 0.
     print(f'\nUsing {args.conf_thresh=}')
-    if args.num_shots > 0:
-        print(f'Using {args.num_shots=}')
+    if args.topk > 0:
+        print(f'Using {args.topk=}')
     print(f'\tSelect {select_num} from {total_num}, Acc={sel_acc:.2f}%')
     if args.tta:
         print(f'Using TTA with {args.tta_consistent=} + {args.tta_min_prob=}')
@@ -78,6 +82,7 @@ def main(params):
     print(f'Generate pseudo labels for {params.dataset}')
     test_set = build_dataset(params, val_only=False, gen_data=True, tta=tta)
     ev_dst = test_set.event_dataset
+    class_names, labels = test_set.classes, ev_dst.labels
 
     datamodule = BaseDataModule(
         params, train_set=None, val_set=test_set, use_ddp=False)
@@ -91,23 +96,30 @@ def main(params):
     model = build_model(params)
 
     # load weight
-    # don't load for zero-shot models
-    if args.weight and not is_zs:
+    gt_data = {}  # we might have some labeled data
+    if args.weight:
+        assert not is_zs, 'Zero-shot models should not have pre-trained weight'
         model.load_weight(args.weight)
         print(f'Loading weight: {args.weight}')
+        # load labeled data, we won't generate pseudo labels for them
+        assert args.gt_shots > 0, \
+            'Should specify the num_shots used to pre-train the model'
+        split_fn = osp.join('./datasets/files', ev_dst.__class__.__name__,
+                            f'{args.gt_shots}shot-repeat=True.pkl')
+        gt_split = load_obj(split_fn)  # Dict[event_fn (str): label (int)]
+        # convert to Dict[event_fn (str): class_name (str)]
+        gt_data = {k: class_names[v] for k, v in gt_split.items()}
+    gt_data_paths = [get_folder_and_fn(k) for k in gt_data.keys()]
     model = model.cuda().eval()
 
     # test
     all_acc_meter = AverageMeter()
-    class_names, labels = test_set.classes, ev_dst.labels
-    # total_num = len(labels)
     gt_class_cnt = {k: (labels == i).sum() for i, k in enumerate(class_names)}
     sel_class_cnt = {k: 0 for k in class_names}
     sel_correct_class_cnt = {k: 0 for k in class_names}
     pred_path2cls = {}
 
-    conf_thresh = args.conf_thresh
-    num_shots = args.num_shots
+    conf_thresh, topk = args.conf_thresh, args.topk
     for data_dict in tqdm(test_loader):
         data_idx = data_dict.pop('data_idx').numpy()  # [B]
         data_dict = {k: v.cuda() for k, v in data_dict.items()}
@@ -119,7 +131,7 @@ def main(params):
 
         # based on aggregated probs
         pred_probs = out_dict['probs']
-        # TODO: aggregate probs in a better way
+        # aggregate probs from multi-view TTA predictions
         if tta:
             probs = pred_probs.unflatten(0, (-1, 4))  # [B, 4, n_cls]
             tta_mask = torch.ones_like(labels).bool()  # [B]
@@ -146,14 +158,17 @@ def main(params):
             sel_mask &= tta_mask
         # update class cnt
         for i, (lbl, pred_lbl) in enumerate(zip(labels, pred_labels)):
+            ev_path = str(ev_dst.labeled_files[data_idx[i]])
+            # skip labeled data as they will be included later anyway
+            if get_folder_and_fn(ev_path) in gt_data_paths:
+                continue
             pred_cls_name = class_names[pred_lbl.item()]
             if sel_mask[i].item():
                 sel_class_cnt[pred_cls_name] += 1
                 if pred_lbl.item() == lbl.item():
                     sel_correct_class_cnt[pred_cls_name] += 1
             if sel_mask[i].item():
-                ev_path = str(ev_dst.labeled_files[data_idx[i]])
-                if num_shots > 0:  # also record the probs, take top-k later
+                if topk > 0:  # also record the probs, take top-k later
                     pred_path2cls[ev_path] = {
                         'cls': pred_cls_name,
                         'prob': max_probs[i].item(),
@@ -177,8 +192,8 @@ def main(params):
     os.makedirs(train_path, exist_ok=True)
     # some classes might be renamed
     new_cnames = ev_dst.new_cnames
-    # only take top-`num_shots` predictions for each class
-    if num_shots > 0:
+    # only take `topk` predictions for each class
+    if topk > 0:
         topk_pred_path2cls, sel_class_cnt, sel_correct_class_cnt = {}, {}, {}
         for cls_name in class_names:
             sel_correct_class_cnt[cls_name] = 0
@@ -189,8 +204,8 @@ def main(params):
                     cls_pred_paths.append(path)
                     cls_pred_probs.append(pred['prob'])
             cls_pred_probs = torch.tensor(cls_pred_probs)
-            topk = min(num_shots, cls_pred_probs.shape[0])
-            _, topk_idx = cls_pred_probs.topk(topk)
+            k = min(topk, cls_pred_probs.shape[0])
+            _, topk_idx = cls_pred_probs.topk(k)
             for i in topk_idx:
                 path = cls_pred_paths[i]  # get the GT label from path
                 gt_cls_name = osp.basename(osp.dirname(path))
@@ -201,10 +216,12 @@ def main(params):
                 if gt_cls_name == cls_name:
                     sel_correct_class_cnt[cls_name] += 1
                 topk_pred_path2cls[path] = cls_name
-            sel_class_cnt[cls_name] = topk
+            sel_class_cnt[cls_name] = k
         pred_path2cls = topk_pred_path2cls
         print_stats(class_names, gt_class_cnt, sel_class_cnt,
                     sel_correct_class_cnt)
+    # update data with GT labels
+    pred_path2cls.update(gt_data)
     # save pseudo labels
     for path, pred_cls in pred_path2cls.items():
         path = get_real_path(path)
@@ -266,7 +283,8 @@ if __name__ == "__main__":
     parser.add_argument('--tta', action='store_true')
     parser.add_argument('--tta_consistent', action='store_true')
     parser.add_argument('--tta_min_prob', action='store_true')
-    parser.add_argument('--num_shots', type=int, default=-1)
+    parser.add_argument('--topk', type=int, default=-1)
+    parser.add_argument('--gt_shots', type=int, default=-1)  # labeled data
     args = parser.parse_args()
 
     if args.params.endswith('.py'):

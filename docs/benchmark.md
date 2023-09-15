@@ -4,10 +4,13 @@
 
 We provide instructions on reproducing the results reported in the paper, including:
 
--   Zero-shot EventCLIP on N-Caltech, N-Cars and N-ImageNet
+-   Zero-shot EventCLIP on N-Caltech, N-Cars, and N-ImageNet datasets
 -   Few-shot EventCLIP with text adapter (most stable), or joint adapter (best performing) on 3 datasets
+-   Fine-tuning EventCLIP on N-Caltech and N-ImageNet to achieve SOTA performance
+-   Learning with unlabeled data by self-training on generated pseudo labels on the N-ImageNet (Mini) dataset
 
-In the following instructions, we will use **EventCLIP with joint adapter on N-Caltech dataset under 5-shot setting** as the example.
+In the following instructions, we will mostly use **EventCLIP with joint adapter on N-Caltech under the 5-shot setting** as example.
+Other settings are easily replicable by changing the config file or other flags.
 
 ## Training EventCLIP Feature Adapter
 
@@ -83,22 +86,29 @@ To generate pseudo labels on unlabeled data, please use [gen_data.py](../gen_dat
 For example, you can use the zero-shot EventCLIP to generate pseudo labels on the N-ImageNet (Mini) dataset by:
 
 ```
-python gen_data.py --params configs/zsclip/zsclip_nin_mini_params-vitb32.py --conf_thresh 0.999 --tta --tta_min_prob --tta_consistent --save_path data/pseudo-N_Imagenet/vitb32_zs-tta-min_prob-consistent-thresh_0999-30shot --num_shots 30
+python gen_data.py --params configs/zsclip/zsclip_nin_mini_params-vitb32.py --weight '' --conf_thresh 0.999 --tta --tta_min_prob --tta_consistent --save_path data/pseudo-N_Imagenet/vitb32_zs-tta-min_prob-consistent-thresh_0999-30shot --topk 30 --gt_shots -1
 ```
 
 Here, we use a confidence threshold of `0.999` to filter predictions.
-`--tta`, `--tta_min_prob`, and `--tta_consistent` are the techniques introduced in the paper to further improve the label quality.
-`--num_shots 30` means we only select the top-30 most confident predictions for each class.
-`--save_path` indicates the path to save the generated dataset.
+Other arguments include:
 
-If you want to train on this generated dataset, please use the [adapter config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py), and modify the `data_root` field to the `save_path` above.
+-   `--tta`, `--tta_min_prob`, and `--tta_consistent` are the techniques introduced in the paper to further improve the label quality
+-   `--topk 30` means we only select the top-30 most confident predictions for each class
+-   `--save_path` indicates the path to save the generated dataset
+-   `--gt_shots` specifies the number of labeled data used to train the model as `--weight`
+    Since we are using the zero-shot model here, we set it to `-1` and `--weight` is empty
+
+If you want to study the semi-supervised setting, where we have `X` labeled data and all the remaining unlabeled data, you can first pre-train an EventCLIP with joint adapter using the [provided config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py).
+Then, run `gen_data.py` again, but with `--gt_shots X` and `--weight` pointing to the pre-trained model's weight.
+
+Finally, to train on this generated dataset (i.e. self-training), please modify the [config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py)'s `data_root` field to the `save_path` above.
 
 ## Useful Scripts
 
 We provide helper scripts for Slurm cluster job submission, and train/test over multiple settings.
 
 -   You can use [sbatch_run.sh](../scripts/sbatch_run.sh) to automatically generate a sbatch file and submit the job to slurm.
-    Simply running:
+    Simply run:
 
 ```
 GPUS=$NUM_GPU CPUS_PER_GPU=8 MEM_PER_CPU=5 QOS=$QOS \
@@ -118,8 +128,7 @@ Then this will be equivalent to running the above `python train.py xxx` command 
 Note that `sbatch_run.sh` calls a `resubmit_failed_job.sh` script inside, which will monitor the job status and resubmit the job if it fails.
 
 -   We provide a script to **submit multiple runs of the same experiment with different random seeds** to slurm.
-
-To use the duplicate-run script [dup_run_sbatch.sh](../scripts/dup_run_sbatch.sh), simply do:
+    To use the duplicate-run script [dup_run_sbatch.sh](../scripts/dup_run_sbatch.sh), simply run:
 
 ```
 GPUS=$NUM_GPU CPUS_PER_GPU=8 MEM_PER_CPU=5 QOS=$QOS REPEAT=$NUM_REPEAT \
@@ -140,7 +149,7 @@ GPUS=1 CPUS_PER_GPU=8 MEM_PER_CPU=5 QOS=normal REPEAT=3 \
     --num_shots 5 --fp16 --cudnn
 ```
 
-The model weights will be saved under `./checkpoint/joint_fsclip_ncaltech_params-dup$X/`.
+The model weights will be saved under `./checkpoint/joint_fsclip_ncaltech_params-dup$X-5shot/`.
 
 -   We provide scripts to train one EventCLIP under all five numbers of shots used in the paper [train_all_shots.sh](../scripts/train_all_shots.sh).
     For example, if you want to run the above `dup_run_sbatch.sh` command with `20, 10, 5, 3, 1` shots, simply wrap that command with this script by:
