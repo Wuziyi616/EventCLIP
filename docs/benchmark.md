@@ -12,6 +12,11 @@ We provide instructions on reproducing the results reported in the paper, includ
 In the following instructions, we will mostly use **EventCLIP with joint adapter on N-Caltech under the 5-shot setting** as example.
 Other settings are easily replicable by changing the config file or other flags.
 
+### Pre-trained Weights
+
+Since most of the experiments in the paper can be trained within 1-2 hours, we only provide pre-trained weights for long-running experiments, or those involving multi-step training.
+Please download the pre-trained weights from [Google Drive]() and unzip them under [pretrained/](../pretrained/).
+
 ## Training EventCLIP Feature Adapter
 
 **We provide a unified script [train.py](../train.py) to train all models used in this project.**
@@ -61,8 +66,8 @@ Other arguments in `test.py` include:
 -   `--arch`: change CLIP's image encoder backbone in zero-shot testing
 -   `--prompt`: change the text prompt in zero-shot testing
 
-We also provide a `--train_shots` argument.
-If you train the same model with different `--num_shots` values in `train.py`, you can put all numbers of shots here to test them all together.
+We also provide a `--train_shots` argument to automatically gather results over different shots.
+If you train the same model with different `--num_shots` values in `train.py`, you can put all numbers of shots here to test them together.
 For example, you can run:
 
 ```
@@ -80,16 +85,22 @@ Please refer to them for detailed training requirement:
 
 -   [Fine-tuning configs](../configs/ftclip/)
 
+We provide the weight for our fine-tuned EventCLIP (with ViT-B/16 backbone) on the N-ImageNet dataset.
+
 ## Learning with Unlabeled Data
 
 To generate pseudo labels on unlabeled data, please use [gen_data.py](../gen_data.py).
 For example, you can use the zero-shot EventCLIP to generate pseudo labels on the N-ImageNet (Mini) dataset by:
 
 ```
-python gen_data.py --params configs/zsclip/zsclip_nin_mini_params-vitb32.py --weight '' --conf_thresh 0.999 --tta --tta_min_prob --tta_consistent --save_path data/pseudo-N_Imagenet/vitb32_zs-tta-min_prob-consistent-thresh_0999-30shot --topk 30 --gt_shots -1
+python gen_data.py --params configs/zsclip/zsclip_nin_mini_params-vitb32.py --weight '' \
+    --conf_thresh 0.999 --tta --tta_min_prob --tta_consistent --topk 30 \
+    --save_path data/pseudo-N_Imagenet/vitb32_zs-tta-thresh_0999-top30 \
+    --gt_shots -1
 ```
 
-Here, we use a confidence threshold of `0.999` to filter predictions.
+Here, we use a very high confidence threshold of `0.999` to filter predictions.
+This is because the pre-trained CLIP model always makes over-confident predictions (likely due to the learned temperature parameter `\tau`).
 Other arguments include:
 
 -   `--tta`, `--tta_min_prob`, and `--tta_consistent` are the techniques introduced in the paper to further improve the label quality
@@ -99,9 +110,24 @@ Other arguments include:
     Since we are using the zero-shot model here, we set it to `-1` and `--weight` is empty
 
 If you want to study the semi-supervised setting, where we have `X` labeled data and all the remaining unlabeled data, you can first pre-train an EventCLIP with joint adapter using the [provided config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py).
-Then, run `gen_data.py` again, but with `--gt_shots X` and `--weight` pointing to the pre-trained model's weight.
+We provide the 1-, 3-, 5-, 10-, and 20-shot pre-trained weights in this setting.
+Then, run `gen_data.py` again, but use the joint adapter's config file as `--params`, `--gt_shots X`, and `--weight` pointing to the pre-trained model's weight.
+Also, please use a lower confidence threshold `--conf_thresh 0.5` as the few-shot EventCLIP is now calibrated.
+An example command is:
 
-Finally, to train on this generated dataset (i.e. self-training), please modify the [config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py)'s `data_root` field to the `save_path` above.
+```
+python gen_data.py --params configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py \
+    --weight pretrained/joint_fsclip_nin_mini_params-vitb32-1shot.pth \
+    --conf_thresh 0.5 --tta --tta_min_prob --tta_consistent --topk 30 \
+    --save_path data/pseudo-N_Imagenet/vitb32_1shot-tta-thresh_05-top30 \
+    --gt_shots 1
+```
+
+Finally, to train on this generated dataset (i.e. self-training), please modify the [config file](../configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py)'s `data_root` field to the `save_path` above and run `train.py`.
+**Note that** you should set `--num_shots` to `X + topk`.
+This is because we select the `topk` most confident predictions per class as pseudo labels, plus the `X` GT labels per class to train the model.
+
+We provide the weight for our EventCLIP (with ViT-B/32 backbone) trained on zero-shot generated pseudo labels on the N-ImageNet (Mini) dataset.
 
 ## Useful Scripts
 
@@ -127,8 +153,8 @@ Then this will be equivalent to running the above `python train.py xxx` command 
 
 Note that `sbatch_run.sh` calls a `resubmit_failed_job.sh` script inside, which will monitor the job status and resubmit the job if it fails.
 
--   We provide a script to **submit multiple runs of the same experiment with different random seeds** to slurm.
-    To use the duplicate-run script [dup_run_sbatch.sh](../scripts/dup_run_sbatch.sh), simply run:
+-   We provide a script to submit multiple runs of the same experiment with different random seeds to slurm.
+    To use the script [dup_run_sbatch.sh](../scripts/dup_run_sbatch.sh), simply run:
 
 ```
 GPUS=$NUM_GPU CPUS_PER_GPU=8 MEM_PER_CPU=5 QOS=$QOS REPEAT=$NUM_REPEAT \
@@ -164,5 +190,5 @@ See the `Testing` section above on how to efficiently test all these models with
 -   In zero-shot testing, we provide script to test EventCLIP with different ViT's image encoder architectures [test_all_arch.sh](../scripts/test_all_arch.sh).
     Simply wrap your testing command with this script, and add the arches you want to try
 
--   On N-ImageNet testing, we provide script to test EventCLIP over all robustness variants [test_all_subset.sh](../scripts/test_all_subset.sh)
+-   On N-ImageNet testing, we provide script to test EventCLIP over all robustness variants [test_all_subset.sh](../scripts/test_all_subset.sh).
     Simply wrap your testing command with this script, and add the subsets you want to try

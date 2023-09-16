@@ -104,6 +104,12 @@ def main(params):
         # load labeled data, we won't generate pseudo labels for them
         assert args.gt_shots > 0, \
             'Should specify the num_shots used to pre-train the model'
+        assert f'{args.gt_shots}shot' in args.weight or \
+            f'{args.gt_shots}-shot' in args.weight, \
+            f'Weight {args.weight} does not match `{args.gt_shots}-shot`'
+        assert f'{args.gt_shots}shot' in save_path or \
+            f'{args.gt_shots}-shot' in save_path, \
+            f'Should put `{args.gt_shots}shot` in `save_path`'
         split_fn = osp.join('./datasets/files', ev_dst.__class__.__name__,
                             f'{args.gt_shots}shot-repeat=True.pkl')
         gt_split = load_obj(split_fn)  # Dict[event_fn (str): label (int)]

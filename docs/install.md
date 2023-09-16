@@ -8,7 +8,8 @@ conda activate eventclip
 ```
 
 Then install PyTorch which is compatible with your CUDA setting.
-In our experiments, we use PyTorch 1.12.1 + CUDA 11.3 (the CUDA version is fine as long as it meets the requirement [here](https://pytorch.org/get-started/previous-versions/). PyTorch 2.0 is not tested but could also be compatible):
+In our experiments, we use PyTorch 1.12.1 + CUDA 11.3 (the CUDA version is fine as long as it meets the requirement [here](https://pytorch.org/get-started/previous-versions/)).
+PyTorch 2.0.0 is also compatible and can speed up model training:
 
 ```
 conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch
