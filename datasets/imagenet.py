@@ -35,9 +35,14 @@ class NImageNet(NCaltech101):
         root,
         augmentation=False,
         num_shots=None,
-        repeat=True,
     ):
-        super().__init__(root, augmentation, num_shots, repeat)
+        super().__init__(
+            root=root,
+            augmentation=augmentation,
+            num_shots=num_shots,
+            repeat=False,
+            new_cnames=None,
+        )
 
         # data stats
         self.resolution = (480, 640)
@@ -74,7 +79,12 @@ class NImageNet(NCaltech101):
         return load_event(event_path).astype(np.float32)
 
 
-def build_n_imagenet_dataset(params, val_only=False, subset=-1):
+def build_n_imagenet_dataset(
+    params,
+    val_only=False,
+    gen_data=False,
+    subset=-1,
+):
     """Build the N-ImageNet dataset."""
     val_names = {
         1: 'val_mode_1',
@@ -88,25 +98,32 @@ def build_n_imagenet_dataset(params, val_only=False, subset=-1):
         9: 'val_brightness_7',
     }
     if subset > 0:
-        val_root = os.path.join(params.data_root,
-                                f'extracted_{val_names[subset]}')
+        val_set = val_names[subset]
+        val_root = os.path.join(params.data_root, f'extracted_{val_set}')
+        print('Using N-ImageNet subset:', val_set)
     else:
         val_root = os.path.join(params.data_root, 'extracted_val')
+        print('Using normal N-ImageNet val set')
 
     # only build the test set
     test_set = NImageNet(
         root=val_root,
         augmentation=False,
-        num_shots=None,
     )
     if val_only:
+        assert not gen_data
         return test_set
+    # build the training set for pseudo label generation
+    if gen_data:
+        return NImageNet(
+            root=os.path.join(params.data_root, 'extracted_train'),
+            augmentation=False,
+        )
 
     # build the training set
     train_set = NImageNet(
         root=os.path.join(params.data_root, 'extracted_train'),
         augmentation=True,
         num_shots=params.get('num_shots', None),
-        repeat=False,
     )
     return train_set, test_set

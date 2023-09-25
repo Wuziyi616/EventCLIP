@@ -1,11 +1,14 @@
 vis/
 wandb/
+sbatch/
+pretrained/
 checkpoint/
 checkpoints/
 data/*/
 data/N-Caltech101
 data/N-Cars
 data/N_Imagenet
+data/pseudo-N_Imagenet
 .idea/
 
 # Byte-compiled / optimized / DLL files

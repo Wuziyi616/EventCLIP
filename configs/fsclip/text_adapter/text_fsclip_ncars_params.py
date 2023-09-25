@@ -22,6 +22,7 @@ class EventCLIPParams(BaseParams):
     dataset = 'n_cars'
     data_root = './data/N-Cars/'
     num_shots = None
+    img_aug = False
     train_batch_size = 32 // gpus if \
         num_shots is None else min(num_shots * 2, 32) // gpus
     val_batch_size = max(train_batch_size, 32 // gpus) * 2

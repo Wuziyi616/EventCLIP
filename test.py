@@ -19,7 +19,7 @@ from datasets import build_dataset
 
 
 @torch.no_grad()
-def main(params):
+def main(params, printing=True):
     # have to load CLIP model first
     arch = params.clip_dict['arch']
     device = 'cuda'
@@ -48,6 +48,7 @@ def main(params):
     # don't load for zero-shot models
     if args.weight and not is_zs:
         model.load_weight(args.weight)
+        print(f'Loading weight: {args.weight}')
     model = model.cuda().eval()
 
     # test
@@ -79,6 +80,9 @@ def main(params):
                 float().sum(dim=-1).mean().item()
             logits_acc5_meter.update(logits_acc5, labels.shape[0])
 
+    if not printing:
+        return probs_acc_meter.avg, logits_acc_meter.avg
+
     print(f'\n\nTesting {args.params}')
     print(f'Model weight: {args.weight}')
     print(f'\tProbs-based accuracy@1: {probs_acc_meter.avg * 100.:.2f}%')
@@ -93,6 +97,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EventCLIP')
     parser.add_argument('--params', type=str, required=True)
     parser.add_argument('--weight', type=str, default='', help='load weight')
+    parser.add_argument('--N', type=int, default=-1)
     parser.add_argument('--arch', type=str, default='')
     parser.add_argument('--prompt', type=str, default='')
     parser.add_argument('--bs', type=int, default=-1)
@@ -108,6 +113,9 @@ if __name__ == "__main__":
 
     # adjust params
     is_zs = (params.model == 'ZSCLIP')
+    if args.N > 0:
+        params.quantize_args['N'] = int(args.N * 1e3)
+        assert is_zs, 'can only change N in zero-shot testing'
     if args.arch:
         params.clip_dict['arch'] = args.arch
         assert is_zs, 'can only change ViT arch in zero-shot testing'
@@ -126,6 +134,7 @@ if __name__ == "__main__":
         main(params)
         exit(-1)
 
+    all_probs_acc, all_logits_acc = [], []
     for num_shot in args.train_shots:
         # first, find all dup-run dirs
         dup_weight_dir = os.path.join('checkpoint',
@@ -135,6 +144,9 @@ if __name__ == "__main__":
             weight_dir = f'{dup_weight_dir}-dup{i}-{num_shot}shot'
             if os.path.exists(weight_dir):
                 all_weight_dirs.append(weight_dir)
+
+        # average the accuracy over all weights
+        probs_acc_avg, logits_acc_avg = AverageMeter(), AverageMeter()
 
         # now, for each weight_dir, find a weight to test
         for weight_dir in all_weight_dirs:
@@ -154,4 +166,21 @@ if __name__ == "__main__":
                     all_weights, key=lambda x: int(x[:-4].split('_')[1]))
                 args.weight = os.path.join(weight_dir, all_weights[-1])
 
-            main(params)
+            probs_acc, logits_acc = main(params, printing=False)
+            probs_acc_avg.update(probs_acc, 1)
+            logits_acc_avg.update(logits_acc, 1)
+
+        # print the results for this `num_shot`
+        print(f'\n\nTesting {args.params}-{num_shot}shot')
+        print(f'Average accuracy over {probs_acc_avg.count} runs:')
+        print(f'\tProbs-based accuracy@1: {probs_acc_avg.avg * 100.:.2f}%')
+        print(f'\tLogits-based accuracy@1: {logits_acc_avg.avg * 100.:.2f}%\n')
+        all_probs_acc.append(round(probs_acc_avg.avg * 100., 2))
+        all_logits_acc.append(round(logits_acc_avg.avg * 100., 2))
+
+    # print the results for recording & LaTeX
+    print('\n\n')
+    print(f'Probs-based accuracy@1: {all_probs_acc}')
+    print('\t', ' & '.join([str(acc) for acc in all_probs_acc]))
+    print(f'Logits-based accuracy@1: {all_logits_acc}')
+    print('\t', ' & '.join([str(acc) for acc in all_logits_acc]))

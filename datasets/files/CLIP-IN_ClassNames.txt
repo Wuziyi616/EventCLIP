@@ -742,7 +742,7 @@ n03995372 power drill
 n03998194 prayer rug
 n04004767 printer
 n04005630 prison
-n04008634 missile
+n04008634 projectile
 n04009552 projector
 n04019541 hockey puck
 n04023962 punching bag
@@ -834,7 +834,7 @@ n04346328 stupa
 n04347754 submarine
 n04350905 suit
 n04355338 sundial
-n04355933 sunglasses
+n04355933 sunglass
 n04356056 sunglasses
 n04357314 sunscreen
 n04366367 suspension bridge

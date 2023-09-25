@@ -22,6 +22,7 @@ class EventCLIPParams(BaseParams):
     dataset = 'n_imagenet'
     data_root = './data/N_Imagenet/'
     num_shots = None
+    img_aug = True
     train_batch_size = 128 // gpus
     val_batch_size = train_batch_size * 2
     num_workers = 16

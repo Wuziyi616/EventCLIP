@@ -10,7 +10,8 @@ Please download and unzip the data and put it under `./data/N-Caltech101`.
 
 ## N-Cars
 
-Please follow the instructions on the [official website](https://www.prophesee.ai/2018/03/13/dataset-n-cars/) to download N-Cars dataset and put it under `./data/N-Cars`.
+We also use the N-Cars dataset processed by the EST repo.
+Please use [this link](http://rpg.ifi.uzh.ch/datasets/gehrig_et_al_iccv19/N-Cars.zip) to download it and unzip it to `./data/N-Cars`.
 
 ## N-ImageNet
 
@@ -19,7 +20,8 @@ Please follow the instructions on the [n_imagenet repo](https://github.com/82mag
 The `N-ImageNet Variants (~150GB)` are not required for training.
 But if you want to test the robustness of our method, you can download them as we do provide evaluation code on them.
 
-The `Mini N-ImageNet (~45 GB)` is not used in this project.
+The `Mini N-ImageNet (~45 GB)` subset is not used in this project.
+But you can modify the dataloader if you want to experiment at a smaller scale.
 
 ## Summary
 

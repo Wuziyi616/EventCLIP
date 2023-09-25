@@ -12,7 +12,7 @@ import torch
 import clip
 
 from nerv.utils import mkdir_or_exist
-from nerv.training import BaseDataModule
+from nerv.training import BaseDataModule, find_old_slurm_id
 
 from models import build_model
 from method import build_method
@@ -53,9 +53,14 @@ def main(params):
         # e.g. on our cluster, the temp dir is /checkpoint/$USR/$SLURM_JOB_ID/
         # TODO: modify this if you are not running on clusters
         SLURM_JOB_ID = os.environ.get('SLURM_JOB_ID')
-        if SLURM_JOB_ID and not os.path.exists(ckp_path):
-            os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
-                pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
+        if os.path.exists(ckp_path):
+            SLURM_JOB_ID = find_old_slurm_id(ckp_path)
+        else:
+            if SLURM_JOB_ID:
+                os.system(r'ln -s /checkpoint/{}/{}/ {}'.format(
+                    pwd.getpwuid(os.getuid())[0], SLURM_JOB_ID, ckp_path))
+            else:
+                os.makedirs(ckp_path, exist_ok=True)
 
         # it's not good to hard-code the wandb id
         # but on preemption clusters, we want the job to resume the same wandb
@@ -68,6 +73,7 @@ def main(params):
         else:
             logger_name = exp_name
             logger_id = None
+
         wandb.init(
             project=params.project,
             name=logger_name,
@@ -125,6 +131,12 @@ if __name__ == "__main__":
             params.train_batch_size = min(
                 params.num_shots * 2,  # 2 classes
                 params.train_batch_size)
+            print(f'Set {params.train_batch_size=} for N-Cars')
+        if params.dataset == 'n_imagenet_mini':
+            params.train_batch_size = min(
+                params.num_shots * 100,  # 100 classes
+                params.train_batch_size)
+            print(f'Set {params.train_batch_size=} for N-ImageNet (Mini)')
 
     if args.fp16:
         print('INFO: using FP16 training!')

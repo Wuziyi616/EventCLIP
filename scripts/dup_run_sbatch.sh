@@ -29,6 +29,22 @@ do
     params="${PARAMS:0:(-3)}-dup${repeat_idx}.py"
     cp $PARAMS $params
     job_name="${JOB_NAME}-dup${repeat_idx}"
+    # if `$PY_ARGS` contains "--N X", then append "-N_X" to `job_name`
+    if [[ $PY_ARGS == *"--N"* ]]; then
+        N=$(echo $PY_ARGS | grep -oP "(?<=--N )\d+")
+        # only modify when `X` is positive
+        if [[ $N -gt 0 ]]; then
+            job_name="${job_name}-N_${N}"
+        fi
+    fi
+    # if `$PY_ARGS` contains "--num_shots X", then append "-Xshot" to `job_name`
+    if [[ $PY_ARGS == *"--num_shots"* ]]; then
+        num_shots=$(echo $PY_ARGS | grep -oP "(?<=--num_shots )\d+")
+        # only modify when `X` is positive
+        if [[ $num_shots -gt 0 ]]; then
+            job_name="${job_name}-${num_shots}shot"
+        fi
+    fi
     cmd="./scripts/sbatch_run.sh $PARTITION $job_name $PY_FILE $DDP --params $params $PY_ARGS"
     echo $cmd
     eval $cmd

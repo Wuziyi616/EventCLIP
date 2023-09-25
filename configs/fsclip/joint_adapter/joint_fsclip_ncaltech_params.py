@@ -23,6 +23,7 @@ class EventCLIPParams(BaseParams):
     data_root = './data/N-Caltech101/'
     num_shots = None
     repeat_data = True
+    img_aug = True
     train_batch_size = 32 // gpus
     val_batch_size = train_batch_size * 2
     num_workers = 8

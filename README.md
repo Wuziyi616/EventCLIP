@@ -25,12 +25,13 @@ This paper thus seeks to adapt one of the most impactful VLM, [CLIP](https://ope
 We study common practice in data-efficient model adaptation, and propose a general framework named EventCLIP.
 The overall pipeline is shown below:
 
-<p align="center"><img src="src/pipeline.png" alt="EventCLIP" width="800"/></p>
+<p align="center"><img src="./assets/pipeline.png" alt="EventCLIP pipeline" width="800"/></p>
 
 ## Update
 
--   2023.5.17: Initial code release!
+-   2023.9.14: Release code for learning with unlabeled data
 -   2023.7.17: Release fine-tuning code
+-   2023.5.17: Initial code release!
 
 ## Installation
 
