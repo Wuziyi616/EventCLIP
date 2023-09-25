@@ -15,7 +15,8 @@ The code contains:
 
 -   Zero-shot EventCLIP inference on N-Caltech, N-Cars, N-ImageNet datasets
 -   Few-shot adaptation of EventCLIP on the three datasets, with SOTA results in the low-data regime
--   Data-efficient fine-tuning of EventCLIP on N-ImageNet, achieving superior accuracy over fully-trained baselines
+-   Data-efficient fine-tuning of EventCLIP on N-Caltech & N-ImageNet, achieving superior accuracy over fully-trained baselines
+-   Learning from unlabeled data on N-Caltech & N-ImageNet, including both fully unsupervised and semi-supervised settings
 
 ### Motivation
 

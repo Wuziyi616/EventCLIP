@@ -3,7 +3,7 @@
 We recommend using [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) for environment setup:
 
 ```
-conda create -n eventclip python=3.8.8
+conda create -n eventclip python=3.9.17
 conda activate eventclip
 ```
 
@@ -22,7 +22,7 @@ You can easily install it by:
 ```
 git clone git@github.com:Wuziyi616/nerv.git
 cd nerv
-git checkout v0.3.0  # tested with v0.3.0 release
+git checkout v0.3.1  # tested with v0.3.1 release
 pip install -e .
 ```
 
