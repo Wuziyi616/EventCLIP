@@ -15,7 +15,7 @@ Other settings are easily replicable by changing the config file or other flags.
 ### Pre-trained Weights
 
 Since most of the experiments in the paper can be trained within 1-2 hours, we only provide pre-trained weights for long-running experiments, or those involving multi-step training.
-Please download the pre-trained weights from [Google Drive]() and unzip them under [pretrained/](../pretrained/).
+Please download the pre-trained weights from [Google Drive](https://drive.google.com/file/d/1QW7sn5BYjRdUe6xD_jQUQgSa9oIveq0s/view?usp=sharing) and unzip them under [pretrained/](../pretrained/).
 
 ## Training EventCLIP Feature Adapter
 
@@ -117,7 +117,7 @@ An example command is:
 
 ```
 python gen_data.py --params configs/fsclip/joint_adapter/joint_fsclip_nin_mini_params-vitb32.py \
-    --weight pretrained/joint_fsclip_nin_mini_params-vitb32-1shot.pth \
+    --weight pretrained/joint_fsclip_nin_mini_params-vitb32-1shot-pretrain.pth \
     --conf_thresh 0.5 --tta --tta_min_prob --tta_consistent --topk 30 \
     --save_path data/pseudo-N_Imagenet/vitb32_1shot-tta-thresh_05-top30 \
     --gt_shots 1
