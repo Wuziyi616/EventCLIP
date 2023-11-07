@@ -27,8 +27,8 @@ SLRM_NAME="${JOB_NAME/\//"_"}"
 LOG_DIR=checkpoint/"$(basename -- $JOB_NAME)"
 DATETIME=$(date "+%Y-%m-%d_%H:%M:%S")
 LOG_FILE=$LOG_DIR/${DATETIME}.log
-CPUS_PER_TASK=$((GPUS * CPUS_PER_GPU))
 SLRM_LOG="${LOG_DIR}/slurm.log"
+CPUS_PER_TASK=$((GPUS * CPUS_PER_GPU))
 
 # set up log output folder
 mkdir -p $LOG_DIR
@@ -50,7 +50,6 @@ echo "#!/bin/bash
 
 # set up SBATCH args
 #SBATCH --job-name=$SLRM_NAME
-#SBATCH --exclude=gpu150,gpu125
 #SBATCH --output=$LOG_FILE
 #SBATCH --error=$LOG_FILE
 #SBATCH --open-mode=append
